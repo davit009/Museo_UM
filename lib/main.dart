@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
+Future<void> main() async {
+  // 1. Asegura que los widgets de Flutter estén vinculados antes de inicializar Supabase
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 2. Inicialización de Supabase
+  await Supabase.initialize(
+    url: 'TU_URL_DE_SUPABASE', 
+    anonKey: 'TU_ANON_KEY_DE_SUPABASE',
+  );
+
   runApp(const MyApp());
 }
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
