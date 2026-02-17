@@ -1,0 +1,8 @@
+models/            # Clases de datos (ej. PostModel, UserProfile)
+├── services/          # Lógica de Supabase (auth_service.dart, database_service.dart)
+├── ui/                # Todo lo visual
+│   ├── widgets/       # Componentes reutilizables (Botones, Cards del museo)
+│   ├── login/         # Tu parte: pantallas de login y registro
+│   ├── museum/        # Parte de tu compañero: salas, info e imágenes
+│   └── wall/          # Parte del muro: feed de recuerdos
+└── main.dart          # Solo inicializa la app y las rutas
