@@ -4,11 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 Future<void> main() async {
   // 1. Asegura que los widgets de Flutter estén vinculados antes de inicializar Supabase
   WidgetsFlutterBinding.ensureInitialized();
-
+//
   // 2. Inicialización de Supabase
   await Supabase.initialize(
-    url: 'TU_URL_DE_SUPABASE', 
-    anonKey: 'TU_ANON_KEY_DE_SUPABASE',
+    url: 'https://ybnuczqimbjzyotjdgsx.supabase.co', 
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlibnVjenFpbWJqenlvdGpkZ3N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNjU0OTMsImV4cCI6MjA4Njk0MTQ5M30.OsSVLF7VfjSiD5AkPQKi6hMNzeUit6VY6E_Z9OUIuNI',
   );
 
   runApp(const MyApp());
