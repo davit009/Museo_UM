@@ -6,6 +6,7 @@ import 'musica_screen.dart';
 import 'datos_curiosos_screen.dart';
 import 'informacion_screen.dart';
 import 'como_llegar_screen.dart';
+import 'muro_screen.dart';
 import '../login/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 class _Section {
@@ -82,6 +83,14 @@ final _sections = [
     color: const Color(0xFF2E9E5E),
     colorSecundario: const Color(0xFF1A6B3A),
     screen: const ComoLlegarScreen(),
+  ),
+  _Section(
+    titulo: 'Muro',
+    subtitulo: 'Compartí tu experiencia en el museo',
+    icon: Icons.forum,
+    color: const Color(0xFFE04E4E),
+    colorSecundario: const Color(0xFF9B1A1A),
+    screen: const MuroScreen(),
   ),
 ];
 
