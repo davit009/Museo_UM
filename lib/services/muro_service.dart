@@ -7,7 +7,7 @@ class MuroService {
   Future<List<Map<String, dynamic>>> fetchPosts() async {
     final response = await _client
         .from('posts')
-        .select('*, profiles(username)')
+        .select('*, profiles(username, nombre, carrera, generacion, avatar_url, biografia, linkedin_url, email_publico)')
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response);
   }

@@ -11,6 +11,8 @@ import '../login/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../profile/profile_screen.dart';
+import '../social/social_hub_screen.dart';
+
 class _Section {
   final String titulo;
   final String subtitulo;
@@ -280,6 +282,23 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.group, color: Color(0xFF1A2B4A)),
+                title: const Text(
+                  'Conexiones y Mensajes',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A2B4A),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SocialHubScreen()),
                   );
                 },
               ),

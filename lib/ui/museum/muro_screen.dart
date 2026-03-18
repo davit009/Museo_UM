@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/muro_service.dart';
 import '../login/login_screen.dart';
+import '../widgets/connect_button.dart';
 
 class MuroScreen extends StatefulWidget {
   const MuroScreen({super.key});
@@ -87,6 +88,83 @@ class _MuroScreenState extends State<MuroScreen> {
     if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
     if (diff.inHours < 24) return 'hace ${diff.inHours} h';
     return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
+  void _mostrarPerfil(BuildContext context, String targetUserId, Map<String, dynamic> perfil, bool esMio, bool estaLogueado) {
+    final nombre = perfil['nombre'] as String? ?? perfil['username'] as String? ?? 'Visitante';
+    final carrera = perfil['carrera'] as String? ?? 'Carrera no especificada';
+    final generacion = perfil['generacion'] as String? ?? 'Generación no especificada';
+    final biografia = perfil['biografia'] as String? ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: _color.withValues(alpha: 0.15),
+                child: Text(
+                  nombre.isNotEmpty ? nombre[0].toUpperCase() : 'V',
+                  style: const TextStyle(color: _color, fontSize: 32, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(nombre, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              if (carrera.isNotEmpty || generacion.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$carrera${generacion.isNotEmpty ? ' • $generacion' : ''}',
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              if (biografia.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  biografia,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 24),
+              if (!esMio && estaLogueado) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ConnectButton(targetUserId: targetUserId, targetUserName: nombre),
+                )
+              ],
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -253,112 +331,141 @@ class _MuroScreenState extends State<MuroScreen> {
                               'Todavía no hay publicaciones',
                               style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '¡Sé el primero en compartir!',
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                            ),
                           ],
                         ),
                       )
                     : RefreshIndicator(
                         onRefresh: _loadPosts,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
                           itemCount: _posts.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
                           itemBuilder: (context, index) {
                             final post = _posts[index];
+                            final targetUserId = post['user_id'] as String;
                             final perfil = post['profiles'] as Map<String, dynamic>?;
-                            final username = perfil?['username'] as String? ?? 'Visitante';
-                            final esMio = post['user_id'] == currentUserId;
+                            final username = perfil?['nombre'] as String? ?? perfil?['username'] as String? ?? 'Visitante';
+                            final carrera = perfil?['carrera'] as String? ?? '';
+                            final esMio = targetUserId == currentUserId;
 
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 22,
-                                    backgroundColor: _color.withValues(alpha: 0.15),
-                                    child: Text(
-                                      username.isNotEmpty ? username[0].toUpperCase() : 'V',
-                                      style: TextStyle(
-                                        color: _color,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(color: Colors.grey.shade200),
+                              ),
+                              color: Colors.white,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              username,
+                                        GestureDetector(
+                                          onTap: () {
+                                            if (perfil != null) {
+                                              _mostrarPerfil(context, targetUserId, perfil, esMio, estaLogueado);
+                                            }
+                                          },
+                                          child: CircleAvatar(
+                                            radius: 20,
+                                            backgroundColor: _color.withValues(alpha: 0.1),
+                                            child: Text(
+                                              username.isNotEmpty ? username[0].toUpperCase() : 'V',
                                               style: const TextStyle(
+                                                color: _color,
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: 14,
+                                                fontSize: 16,
                                               ),
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              '· ${_formatFecha(post['created_at'])}',
-                                              style: TextStyle(
-                                                color: Colors.grey.shade500,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            if (esMio)
-                                              GestureDetector(
-                                                onTap: () => showDialog(
-                                                  context: context,
-                                                  builder: (_) => AlertDialog(
-                                                    title: const Text('Eliminar publicación'),
-                                                    content: const Text('¿Seguro que querés eliminarla?'),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () => Navigator.pop(context),
-                                                        child: const Text('Cancelar'),
-                                                      ),
-                                                      TextButton(
-                                                        onPressed: () {
-                                                          Navigator.pop(context);
-                                                          _eliminar(post['id']);
-                                                        },
-                                                        child: const Text(
-                                                          'Eliminar',
-                                                          style: TextStyle(color: Colors.red),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                child: Icon(
-                                                  Icons.more_horiz,
-                                                  color: Colors.grey.shade400,
-                                                  size: 18,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          post['contenido'] ?? '',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            height: 1.5,
-                                            color: Color(0xFF333333),
                                           ),
                                         ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              if (perfil != null) {
+                                                _mostrarPerfil(context, targetUserId, perfil, esMio, estaLogueado);
+                                              }
+                                            },
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  username,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                    color: Color(0xFF1A2B4A),
+                                                  ),
+                                                ),
+                                                if (carrera.isNotEmpty)
+                                                  Text(
+                                                    carrera,
+                                                    style: TextStyle(
+                                                      color: Colors.grey.shade500,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatFecha(post['created_at']),
+                                          style: TextStyle(
+                                            color: Colors.grey.shade400,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        if (esMio) ...[
+                                          const SizedBox(width: 8),
+                                          GestureDetector(
+                                            onTap: () => showDialog(
+                                              context: context,
+                                              builder: (_) => AlertDialog(
+                                                title: const Text('Eliminar publicación'),
+                                                content: const Text('¿Seguro que querés eliminarla?'),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () => Navigator.pop(context),
+                                                    child: const Text('Cancelar'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () {
+                                                      Navigator.pop(context);
+                                                      _eliminar(post['id']);
+                                                    },
+                                                    child: const Text(
+                                                      'Eliminar',
+                                                      style: TextStyle(color: Colors.red),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.grey.shade400,
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      post['contenido'] ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        height: 1.5,
+                                        color: Color(0xFF333333),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           },
