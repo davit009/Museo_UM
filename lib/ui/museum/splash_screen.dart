@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import '../login/login_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
@@ -89,7 +91,7 @@ class SplashScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: () => _irAlHome(context),
+                        onPressed: () => _irAlLogin(context),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Colors.white, width: 2),
@@ -124,6 +126,18 @@ class SplashScreen extends StatelessWidget {
       context,
       MaterialPageRoute(builder: (_) => const HomeScreen()),
     );
+  }
+
+  void _irAlLogin(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    ).then((_) {
+      // Si tras cerrar el LoginScreen el usuario inició sesión, mandarlo al Home
+      if (Supabase.instance.client.auth.currentUser != null) {
+        _irAlHome(context);
+      }
+    });
   }
 }
 

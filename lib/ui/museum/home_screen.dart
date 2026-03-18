@@ -9,6 +9,8 @@ import 'como_llegar_screen.dart';
 import 'muro_screen.dart';
 import '../login/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
+import '../profile/profile_screen.dart';
 class _Section {
   final String titulo;
   final String subtitulo;
@@ -103,16 +105,25 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final PageController _pageController;
+  late final StreamSubscription<AuthState> _authStateSubscription;
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.82);
+    
+    // Escuchar cambios en la sesión para actualizar la UI del Drawer y AppBar
+    _authStateSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (mounted) {
+        setState(() {}); // Forzar reconstrucción de la pantalla
+      }
+    });
   }
 
   @override
   void dispose() {
+    _authStateSubscription.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -135,9 +146,15 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Color(0xFF1A2B4A), size: 26),
-          onPressed: () {},
+        leading: Builder(
+          builder: (context) {
+            return IconButton(
+              icon: const Icon(Icons.menu, color: Color(0xFF1A2B4A), size: 26),
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
+              },
+            );
+          }
         ),
         title: const Text(
           'MUSEO',
@@ -150,30 +167,23 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
         actions: [
-  // --- TU NUEVO BOTÓN DE LOGIN ---
+  // Botón de Perfil / Login dinámico según sesión  // En actions:
   IconButton(
-    icon: const Icon(Icons.account_circle_outlined, color: Color(0xFF1A2B4A), size: 26),
+    icon: Icon(
+      // Si hay usuario en Supabase, muestra la fotito/check, si no, el círculo
+      Supabase.instance.client.auth.currentUser != null 
+        ? Icons.person_pin 
+        : Icons.account_circle_outlined, 
+      color: const Color(0xFF1A2B4A)
+    ),
     onPressed: () {
-      // Navega a tu pantalla de Login
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
+      if (Supabase.instance.client.auth.currentUser != null) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+      } else {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+      }
     },
-
   ),
-
-  // En actions:
-IconButton(
-  icon: Icon(
-    // Si hay usuario en Supabase, muestra el check, si no, el círculo
-    Supabase.instance.client.auth.currentUser != null 
-      ? Icons.person_pin 
-      : Icons.account_circle_outlined, 
-    color: Color(0xFF1A2B4A)
-  ),
-  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen())),
-),
   // --- BOTÓN DEL MAPA (YA EXISTÍA) ---
   IconButton(
     icon: const Icon(Icons.map_outlined, color: Color(0xFF1A2B4A), size: 26),
@@ -183,6 +193,115 @@ IconButton(
     ),
   ),
 ],
+      ),
+      drawer: Drawer(
+        backgroundColor: Colors.white,
+        child: Column(
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                color: Color(0xFF1A2B4A),
+              ),
+              child: const SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Icon(Icons.account_balance, color: Colors.white, size: 48),
+                    SizedBox(height: 16),
+                    Text(
+                      'MUSEO UM',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: _sections.length,
+                itemBuilder: (context, index) {
+                  final section = _sections[index];
+                  return ListTile(
+                    leading: Icon(section.icon, color: section.color),
+                    title: Text(
+                      section.titulo,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A2B4A),
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context); // Cerrar el drawer
+                      _goToPage(index); // Navegar a la página correspondiente en el carrusel
+                    },
+                  );
+                },
+              ),
+            ),
+            const Divider(),
+            if (Supabase.instance.client.auth.currentUser == null)
+              ListTile(
+                leading: const Icon(Icons.login, color: Color(0xFF1A2B4A)),
+                title: const Text(
+                  'Iniciar Sesión',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A2B4A),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  );
+                },
+              )
+            else ...[
+              ListTile(
+                leading: const Icon(Icons.person, color: Color(0xFF1A2B4A)),
+                title: const Text(
+                  'Mi Perfil',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A2B4A),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text(
+                  'Cerrar Sesión',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await Supabase.instance.client.auth.signOut();
+                  // No se necesita hacer más, onAuthStateChange redibujará la pantalla
+                },
+              ),
+            ],
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
