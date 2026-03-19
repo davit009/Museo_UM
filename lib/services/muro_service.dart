@@ -8,7 +8,7 @@ class MuroService {
   Future<List<Map<String, dynamic>>> fetchPosts() async {
     final response = await _client
         .from('posts')
-        .select('*, profiles(username, nombre, carrera, generacion, avatar_url, biografia, linkedin_url, email_publico, mentoria_abierta), post_reactions(user_id, reaction_type)')
+        .select('*, profiles(username, nombre, carrera, generacion, avatar_url, biografia, linkedin_url, email_publico, mentoria_abierta, es_egresado), post_reactions(user_id, reaction_type), post_comments(id)')
         .order('created_at', ascending: false);
     
     final posts = List<Map<String, dynamic>>.from(response);
@@ -17,8 +17,8 @@ class MuroService {
     return posts.where((p) => !blockedUsers.contains(p['user_id'].toString())).toList();
   }
 
-  /// Crea un nuevo post.
-  Future<void> createPost(String contenido) async {
+  /// Crea un nuevo post con categoría.
+  Future<void> createPost(String contenido, {String categoria = 'General'}) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Debés iniciar sesión para publicar.');
     
@@ -27,6 +27,33 @@ class MuroService {
     }
 
     await _client.from('posts').insert({
+      'user_id': userId,
+      'contenido': contenido,
+      'categoria': categoria,
+    });
+  }
+
+  /// Cargar comentarios de un post
+  Future<List<Map<String, dynamic>>> fetchComments(int postId) async {
+    final response = await _client
+        .from('post_comments')
+        .select('*, profiles(nombre, username, carrera, es_egresado)')
+        .eq('post_id', postId)
+        .order('created_at', ascending: true);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  /// Agregar un comentario a un post
+  Future<void> addComment(int postId, String contenido) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Debés iniciar sesión para comentar.');
+    
+    if (ProfanityFilter.hasProfanity(contenido)) {
+      throw Exception('El comentario contiene lenguaje no permitido.');
+    }
+
+    await _client.from('post_comments').insert({
+      'post_id': postId,
       'user_id': userId,
       'contenido': contenido,
     });

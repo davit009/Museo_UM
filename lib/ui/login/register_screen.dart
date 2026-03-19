@@ -21,9 +21,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _otraCarreraController = TextEditingController();
   final _generacionInicioController = TextEditingController();
   final _generacionFinController = TextEditingController();
-  
   DateTime? _fechaNacimiento;
   bool _isLoading = false;
+  bool _esEgresado = false;
+  bool _mentoriaAbierta = false;
+  final _puestoController = TextEditingController();
+  final _empresaController = TextEditingController();
 
   final List<String> _carreras = [
     'Licenciatura en Arquitectura',
@@ -70,6 +73,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _otraCarreraController.dispose();
     _generacionInicioController.dispose();
     _generacionFinController.dispose();
+    _puestoController.dispose();
+    _empresaController.dispose();
     super.dispose();
   }
 
@@ -146,6 +151,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         matricula: _matriculaController.text.trim(),
         carrera: carreraFinal,
         generacion: generacionFinal,
+        esEgresado: _esEgresado,
+        puestoActual: _esEgresado ? _puestoController.text.trim() : null,
+        empresaActual: _esEgresado ? _empresaController.text.trim() : null,
+        mentoriaAbierta: _esEgresado ? _mentoriaAbierta : false,
       );
 
       if (mounted) {
@@ -176,6 +185,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String label,
     required IconData icon,
     bool isPassword = false,
+    bool isRequired = true,
     TextInputType keyboardType = TextInputType.text,
   }) {
     return Padding(
@@ -184,7 +194,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         controller: controller,
         obscureText: isPassword,
         keyboardType: keyboardType,
-        validator: (value) => value == null || value.isEmpty ? 'Campo requerido' : null,
+        validator: isRequired ? (value) => value == null || value.isEmpty ? 'Campo requerido' : null : null,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon, color: const Color(0xFF4A148C)),
@@ -312,6 +322,59 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 // Datos Universitarios
                 const Text('Datos Universitarios', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                 const SizedBox(height: 12),
+                
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: SwitchListTile(
+                    title: const Text('Soy Egresado / Ex Alumno', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A148C))),
+                    subtitle: const Text('Activa esto si ya concluiste tu carrera', style: TextStyle(fontSize: 12)),
+                    value: _esEgresado,
+                    onChanged: (val) => setState(() => _esEgresado = val),
+                    activeColor: const Color(0xFF4A148C),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+
+                if (_esEgresado) ...[
+                  const Text('Experiencia Profesional (Opcional)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const SizedBox(height: 12),
+                  _buildTextField(
+                    controller: _puestoController,
+                    label: 'Puesto o Cargo Actual',
+                    icon: Icons.work_outline,
+                    isRequired: false,
+                  ),
+                  _buildTextField(
+                    controller: _empresaController,
+                    label: 'Empresa',
+                    icon: Icons.business_outlined,
+                    isRequired: false,
+                  ),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: SwitchListTile(
+                      title: const Text('Abierto a dar Mentorías', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF4A148C))),
+                      subtitle: const Text('Permite que alumnos te contacten', style: TextStyle(fontSize: 12)),
+                      value: _mentoriaAbierta,
+                      onChanged: (val) => setState(() => _mentoriaAbierta = val),
+                      activeColor: const Color(0xFF4A148C),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                ],
+
                 _buildTextField(
                   controller: _matriculaController,
                   label: 'Matrícula / ID',

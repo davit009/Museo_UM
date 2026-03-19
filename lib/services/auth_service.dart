@@ -12,6 +12,10 @@ class AuthService {
     required String matricula,
     required String carrera,
     required String generacion,
+    required bool esEgresado,
+    String? puestoActual,
+    String? empresaActual,
+    bool mentoriaAbierta = false,
   }) async {
     // 1. Crear el usuario en Auth
     final response = await _client.auth.signUp(
@@ -27,15 +31,24 @@ class AuthService {
     final user = response.user;
     if (user != null) {
       // 2. Guardar o actualizar datos adicionales en la tabla 'profiles'
-      await _client.from('profiles').upsert({
+      final mapData = {
         'id': user.id, // Debe coincidir con el ID de auth.users
         'nombre': nombre,
         'fecha_nacimiento': fechaNacimiento.toIso8601String().split('T')[0], // YYYY-MM-DD
         'matricula': matricula,
         'carrera': carrera,
         'generacion': generacion,
+        'es_egresado': esEgresado,
         'updated_at': DateTime.now().toIso8601String(),
-      });
+      };
+
+      if (esEgresado) {
+        mapData['puesto_actual'] = puestoActual ?? '';
+        mapData['empresa_actual'] = empresaActual ?? '';
+        mapData['mentoria_abierta'] = mentoriaAbierta;
+      }
+
+      await _client.from('profiles').upsert(mapData);
     }
 
     return response;

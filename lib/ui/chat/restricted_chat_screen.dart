@@ -24,12 +24,38 @@ class _RestrictedChatScreenState extends State<RestrictedChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   final String _currentUserId = Supabase.instance.client.auth.currentUser!.id;
+  bool _reading = false;
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _markAsReadIfNeeded(List<Map<String, dynamic>> messages) async {
+    if (_reading) return;
+    final unread = messages.where((m) => m['sender_id'] == widget.targetUserId && m['leido'] != true).toList();
+    if (unread.isNotEmpty) {
+      _reading = true;
+      try {
+        await _socialService.markMessagesAsRead(widget.targetUserId);
+      } finally {
+        _reading = false;
+      }
+    }
+  }
+
+  bool _isSameDay(DateTime d1, DateTime d2) {
+    return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
+  }
+  
+  String _getDateSeparatorText(DateTime date) {
+    final now = DateTime.now();
+    if (_isSameDay(date, now)) return 'Hoy';
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (_isSameDay(date, yesterday)) return 'Ayer';
+    return DateFormat('d MMM yyyy').format(date);
   }
 
   void _sendMessage() async {
@@ -142,6 +168,12 @@ class _RestrictedChatScreenState extends State<RestrictedChatScreen> {
                 }
 
                 final messages = snapshot.data!;
+                
+                // Marcar como leído sigilosamente
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _markAsReadIfNeeded(messages);
+                });
+
                 // Reversing because we will use reverse: true in ListView
                 final reversedMessages = messages.reversed.toList();
 
@@ -162,39 +194,80 @@ class _RestrictedChatScreenState extends State<RestrictedChatScreen> {
                     final msg = reversedMessages[index];
                     final isMe = msg['sender_id'] == _currentUserId;
                     final date = DateTime.parse(msg['created_at']).toLocal();
+                    final isRead = msg['leido'] == true;
 
-                    return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isMe ? const Color(0xFF1B9E8A) : Colors.grey.shade200,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(16),
-                            topRight: const Radius.circular(16),
-                            bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
-                            bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                    bool showDateSeparator = false;
+                    if (index == reversedMessages.length - 1) {
+                      showDateSeparator = true;
+                    } else {
+                      final nextMsg = reversedMessages[index + 1]; // chronological older
+                      final nextDate = DateTime.parse(nextMsg['created_at']).toLocal();
+                      if (!_isSameDay(date, nextDate)) {
+                        showDateSeparator = true;
+                      }
+                    }
+
+                    final separator = showDateSeparator ? Container(
+                        margin: const EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
+                            child: Text(_getDateSeparatorText(date), style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.bold))
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              msg['content'],
-                              style: TextStyle(color: isMe ? Colors.white : Colors.black87),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              DateFormat('hh:mm a').format(date),
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isMe ? Colors.white70 : Colors.black54,
+                        )
+                    ) : const SizedBox.shrink();
+
+                    return Column(
+                      children: [
+                        separator,
+                        Align(
+                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isMe ? const Color(0xFF1B9E8A) : Colors.grey.shade200,
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(16),
+                                topRight: const Radius.circular(16),
+                                bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+                                bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                            child: Column(
+                              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  msg['content'],
+                                  style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      DateFormat('hh:mm a').format(date),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isMe ? Colors.white70 : Colors.black54,
+                                      ),
+                                    ),
+                                    if (isMe) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.done_all, 
+                                        size: 14, 
+                                        color: isRead ? Colors.blue.shade200 : Colors.white60
+                                      )
+                                    ]
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      ],
                     );
                   },
                 );

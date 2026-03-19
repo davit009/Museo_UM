@@ -158,6 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final puestoActual = _profileData!['puesto_actual'] as String?;
     final empresaActual = _profileData!['empresa_actual'] as String?;
     final biografia = _profileData!['biografia'] as String?;
+    final esEgresado = _profileData!['es_egresado'] ?? false;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -261,9 +262,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      'Miembro del Museo',
-                      style: TextStyle(
+                    child: Text(
+                      esEgresado ? 'Ex Alumno' : 'Alumno Activo',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                       ),

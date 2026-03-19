@@ -162,7 +162,19 @@ class SocialService {
         .from('blocks')
         .select('blocked_id')
         .eq('blocker_id', currentUserId!);
-    
     return List<String>.from((response as List).map((b) => b['blocked_id'].toString()));
   }
+
+  // 12. Marcar como leído
+  Future<void> markMessagesAsRead(String senderId) async {
+    if (currentUserId == null) return;
+    try {
+      await _client.from('restricted_messages')
+          .update({'leido': true})
+          .eq('sender_id', senderId)
+          .eq('receiver_id', currentUserId!)
+          .eq('leido', false);
+    } catch (_) {}
+  }
 }
+

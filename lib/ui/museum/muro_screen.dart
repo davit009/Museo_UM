@@ -4,6 +4,7 @@ import '../../services/social_service.dart';
 import '../login/login_screen.dart';
 import '../widgets/connect_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'comments_bottom_sheet.dart';
 
 class MuroScreen extends StatefulWidget {
   const MuroScreen({super.key});
@@ -20,7 +21,13 @@ class _MuroScreenState extends State<MuroScreen> {
   final _textFocusNode = FocusNode();
   List<Map<String, dynamic>> _posts = [];
   Map<String, dynamic>? _myProfile;
-  String _currentFilter = 'Todos'; // 'Todos', 'Mi Carrera', 'Mi Generación'
+  String _currentFilter = 'Todos'; // Comunidad
+  String _currentCategoryFilter = 'Todas'; // Categoria
+  String _selectedNewPostCategory = 'General';
+  
+  final List<String> _categorias = ['Todas', 'General', 'Duda', 'Aviso', 'Empleo', 'Proyecto'];
+  final List<String> _categoriasPost = ['General', 'Duda', 'Aviso', 'Empleo', 'Proyecto'];
+
   bool _isLoading = true;
   bool _isPosting = false;
 
@@ -58,16 +65,23 @@ class _MuroScreenState extends State<MuroScreen> {
   }
 
   List<Map<String, dynamic>> get _filteredPosts {
-    if (_currentFilter == 'Todos' || _myProfile == null) return _posts;
+    if (_posts.isEmpty) return [];
+    
     return _posts.where((post) {
       final perfil = post['profiles'];
       if (perfil == null) return false;
-      if (_currentFilter == 'Mi Carrera') {
-        return perfil['carrera'] == _myProfile!['carrera'];
+      if (_myProfile != null) {
+        if (_currentFilter == 'Mi Carrera') {
+          if (perfil['carrera'] != _myProfile!['carrera']) return false;
+        } else if (_currentFilter == 'Mi Generación') {
+          if (perfil['generacion'] != _myProfile!['generacion']) return false;
+        }
       }
-      if (_currentFilter == 'Mi Generación') {
-        return perfil['generacion'] == _myProfile!['generacion'];
+
+      if (_currentCategoryFilter != 'Todas') {
+        if (post['categoria'] != _currentCategoryFilter) return false;
       }
+
       return true;
     }).toList();
   }
@@ -86,8 +100,9 @@ class _MuroScreenState extends State<MuroScreen> {
 
     setState(() => _isPosting = true);
     try {
-      await _muroService.createPost(texto);
+      await _muroService.createPost(texto, categoria: _selectedNewPostCategory);
       _textController.clear();
+      setState(() => _selectedNewPostCategory = 'General');
       FocusScope.of(context).unfocus();
       await _loadPosts();
     } catch (e) {
@@ -352,16 +367,45 @@ class _MuroScreenState extends State<MuroScreen> {
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: estaLogueado
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                ? Column(
                     children: [
-                      const CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Color(0xFFE04E4E),
-                        child: Icon(Icons.person, color: Colors.white, size: 22),
+                      Row(
+                        children: [
+                          const Text('Categoría: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _categoriasPost.map((cat) {
+                                  final isSelected = _selectedNewPostCategory == cat;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: ChoiceChip(
+                                      label: Text(cat, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.grey.shade700)),
+                                      selected: isSelected,
+                                      selectedColor: const Color(0xFFE04E4E),
+                                      backgroundColor: Colors.grey.shade200,
+                                      onSelected: (_) => setState(() => _selectedNewPostCategory = cat),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          )
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Color(0xFFE04E4E),
+                            child: Icon(Icons.person, color: Colors.white, size: 22),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
                         child: TextField(
                           controller: _textController,
                           focusNode: _textFocusNode,
@@ -398,6 +442,8 @@ class _MuroScreenState extends State<MuroScreen> {
                               onPressed: _publicar,
                               tooltip: 'Publicar',
                             ),
+                        ],
+                      )
                     ],
                   )
                 : GestureDetector(
@@ -439,18 +485,39 @@ class _MuroScreenState extends State<MuroScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: Colors.white,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    Text('Comunidad:', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13)),
+                    const SizedBox(width: 12),
+                    _buildFilterChip('Todos', isCategory: false),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Mi Carrera', isCategory: false),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Mi Generación', isCategory: false),
+                  ],
+                ),
+              ),
+            ),
+          
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            color: Colors.white,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  Text('Ver:', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                  Text('Tema:', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(width: 12),
-                  _buildFilterChip('Todos'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Mi Carrera'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Mi Generación'),
+                  ..._categorias.map((cat) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _buildFilterChip(cat, isCategory: true)
+                  )),
                 ],
               ),
             ),
+          ),
 
           const Divider(height: 1),
 
@@ -505,8 +572,10 @@ class _MuroScreenState extends State<MuroScreen> {
                             final carrera = perfil?['carrera'] as String? ?? '';
                             final esMentor = perfil?['mentoria_abierta'] == true;
                             final esMio = targetUserId == currentUserId;
+                            final categoria = post['categoria'] as String? ?? 'General';
                             
                             final reactions = List<Map<String, dynamic>>.from(post['post_reactions'] ?? []);
+                            final comentariosCount = (post['post_comments'] as List?)?.length ?? 0;
                             
                             Widget buildReactionButton(String icon, String type) {
                               final count = reactions.where((r) => r['reaction_type'] == type).length;
@@ -605,14 +674,28 @@ class _MuroScreenState extends State<MuroScreen> {
                                                     color: Color(0xFF1A2B4A),
                                                   ),
                                                 ),
-                                                if (carrera.isNotEmpty)
-                                                  Text(
-                                                    carrera,
-                                                    style: TextStyle(
-                                                      color: Colors.grey.shade500,
-                                                      fontSize: 12,
+                                                Row(
+                                                  children: [
+                                                    if (carrera.isNotEmpty)
+                                                      Text(
+                                                        carrera,
+                                                        style: TextStyle(
+                                                          color: Colors.grey.shade500,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    if (carrera.isNotEmpty)
+                                                      Text(' • ', style: TextStyle(color: Colors.grey.shade400)),
+                                                    Text(
+                                                      categoria,
+                                                      style: const TextStyle(
+                                                        color: Color(0xFFE04E4E),
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
                                                     ),
-                                                  ),
+                                                  ],
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -710,6 +793,30 @@ class _MuroScreenState extends State<MuroScreen> {
                                         buildReactionButton('🏛️', 'recuerdo'),
                                         const SizedBox(width: 8),
                                         buildReactionButton('🎓', 'consejo'),
+                                        const Spacer(),
+                                        InkWell(
+                                          onTap: () {
+                                            showModalBottomSheet(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              backgroundColor: Colors.transparent,
+                                              builder: (_) => CommentsBottomSheet(postId: post['id'], muroService: _muroService),
+                                            ).then((_) => _loadPosts());
+                                          },
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.chat_bubble_outline, size: 18, color: Colors.grey.shade600),
+                                                if (comentariosCount > 0) ...[
+                                                  const SizedBox(width: 6),
+                                                  Text('$comentariosCount', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 13)),
+                                                ]
+                                              ],
+                                            ),
+                                          ),
+                                        )
                                       ],
                                     )
                                   ],
@@ -725,10 +832,16 @@ class _MuroScreenState extends State<MuroScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label) {
-    final isSelected = _currentFilter == label;
+  Widget _buildFilterChip(String label, {required bool isCategory}) {
+    final isSelected = isCategory ? _currentCategoryFilter == label : _currentFilter == label;
     return GestureDetector(
-      onTap: () => setState(() => _currentFilter = label),
+      onTap: () => setState(() {
+        if (isCategory) {
+          _currentCategoryFilter = label;
+        } else {
+          _currentFilter = label;
+        }
+      }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
