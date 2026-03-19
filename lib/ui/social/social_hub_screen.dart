@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/social_service.dart';
 import '../chat/restricted_chat_screen.dart';
-import '../widgets/connect_button.dart';
+import '../widgets/profile_bottom_sheet.dart';
+import 'community_directory_screen.dart';
 
 class SocialHubScreen extends StatefulWidget {
   const SocialHubScreen({super.key});
@@ -19,7 +20,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -95,6 +96,91 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
     );
   }
 
+  Widget _buildAmigosTab() {
+    return Container(
+      color: const Color(0xFFF0F4F8),
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: _socialService.getAcceptedConnectionsStream(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          
+          final connections = snapshot.data!;
+          if (connections.isEmpty) {
+            return const Center(child: Text('Aún no tienes amigos en la red.'));
+          }
+
+          return ListView.builder(
+            itemCount: connections.length,
+            itemBuilder: (context, index) {
+              final conn = connections[index];
+              final otherUserId = conn['requester_id'] == _currentUserId 
+                  ? conn['addressee_id'] 
+                  : conn['requester_id'];
+
+              return FutureBuilder<Map<String, dynamic>?>(
+                future: _socialService.getProfile(otherUserId),
+                builder: (context, profileSnap) {
+                  if (!profileSnap.hasData) return const SizedBox.shrink();
+                  
+                  final profile = profileSnap.data!;
+                  final nombre = (profile['nombre'] ?? profile['username'] ?? 'Usuario').toString();
+                  final carrera = (profile['carrera'] ?? '').toString();
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFF1B9E8A).withValues(alpha: 0.1),
+                        child: Text(nombre.isNotEmpty ? nombre[0].toUpperCase() : 'V', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1B9E8A))),
+                      ),
+                      title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(carrera, maxLines: 1),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.person, color: Colors.blue),
+                            onPressed: () => ProfileBottomSheet.show(context, profile),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.person_remove, color: Colors.red),
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text('¿Eliminar amig@?'),
+                                  content: Text('Se eliminará tu conexión con $nombre.'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true), 
+                                      child: const Text('Eliminar', style: TextStyle(color: Colors.red))
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                await _socialService.removeConnection(otherUserId);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Amistad eliminada.'), backgroundColor: Colors.red));
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      onTap: () => ProfileBottomSheet.show(context, profile),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildSolicitudesTab() {
     return Container(
       color: const Color(0xFFF0F4F8),
@@ -156,7 +242,10 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   }
 
   Widget _buildBuscarTab() {
-    return const _SearchTabContent();
+    return Container(
+      color: const Color(0xFFF0F4F8),
+      child: const CommunityDirectoryScreen(),
+    );
   }
 
   @override
@@ -173,6 +262,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
           indicatorColor: const Color(0xFF1B9E8A),
           tabs: const [
             Tab(icon: Icon(Icons.message), text: 'Mensajes'),
+            Tab(icon: Icon(Icons.group), text: 'Amigos'),
             Tab(icon: Icon(Icons.person_add), text: 'Solicitudes'),
             Tab(icon: Icon(Icons.search), text: 'Buscar'),
           ],
@@ -182,6 +272,7 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
         controller: _tabController,
         children: [
           _buildMensajesTab(),
+          _buildAmigosTab(),
           _buildSolicitudesTab(),
           _buildBuscarTab(),
         ],
@@ -190,129 +281,3 @@ class _SocialHubScreenState extends State<SocialHubScreen> with SingleTickerProv
   }
 }
 
-class _SearchTabContent extends StatefulWidget {
-  const _SearchTabContent();
-
-  @override
-  State<_SearchTabContent> createState() => _SearchTabContentState();
-}
-
-class _SearchTabContentState extends State<_SearchTabContent> {
-  final _socialService = SocialService();
-  final _searchController = TextEditingController();
-  List<Map<String, dynamic>> _results = [];
-  bool _isLoading = false;
-
-  void _search([String? _]) async {
-    final query = _searchController.text.trim();
-    if (query.isEmpty) {
-      setState(() => _results = []);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    final results = await _socialService.searchProfiles(query);
-    if (mounted) {
-      setState(() {
-        _results = results;
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _mostrarPerfilBottomSheet(BuildContext context, Map<String, dynamic> perfil) {
-    final targetUserId = perfil['id'];
-    final nombre = perfil['nombre'] ?? perfil['username'] ?? 'Usuario';
-    final matricula = perfil['matricula'] ?? 'Sin matrícula';
-    final carrera = perfil['carrera'] ?? 'Sin carrera detallada';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
-              const SizedBox(height: 16),
-              CircleAvatar(radius: 40, backgroundColor: const Color(0xFF1A2B4A).withValues(alpha: 0.1), child: const Icon(Icons.person, size: 40, color: Color(0xFF1A2B4A))),
-              const SizedBox(height: 16),
-              Text(nombre, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              Text(matricula, style: TextStyle(color: Colors.grey.shade600)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
-                child: Text(carrera, style: TextStyle(color: Colors.grey.shade700)),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ConnectButton(targetUserId: targetUserId, targetUserName: nombre),
-              ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFFF0F4F8),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Buscar por nombre o matrícula...',
-              prefixIcon: const Icon(Icons.search),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-            ),
-            onSubmitted: (value) => _search(),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : _results.isEmpty 
-                  ? const Center(child: Text('Sin resultados', style: TextStyle(color: Colors.grey)))
-                  : ListView.builder(
-                      itemCount: _results.length,
-                      itemBuilder: (context, index) {
-                        final p = _results[index];
-                        final nombre = (p['nombre'] ?? p['username'] ?? 'Usuario').toString();
-                        final matricula = (p['matricula'] ?? '').toString();
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: const Color(0xFF1A2B4A).withValues(alpha: 0.1),
-                              child: Text(nombre.isNotEmpty ? nombre[0].toUpperCase() : 'V', style: const TextStyle(color: Color(0xFF1A2B4A))),
-                            ),
-                            title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text(matricula),
-                            onTap: () => _mostrarPerfilBottomSheet(context, p),
-                            trailing: ConnectButton(targetUserId: p['id'].toString(), targetUserName: nombre),
-                          ),
-                        );
-                      },
-                    ),
-          ),
-        ],
-      ),
-    );
-  }
-}

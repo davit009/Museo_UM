@@ -121,4 +121,48 @@ class SocialService {
         .maybeSingle();
     return response;
   }
+
+  // 10. Bloquear Usuario
+  Future<void> blockUser(String targetId) async {
+    if (currentUserId == null) return;
+    final uid = currentUserId!;
+    
+    // 1. Registrar bloqueo
+    await _client.from('blocks').insert({
+      'blocker_id': uid,
+      'blocked_id': targetId,
+    });
+
+    // 2. Destruir cualquier conexión existente (A o B)
+    await _client.from('connections')
+        .delete()
+        .or('and(requester_id.eq.$uid,addressee_id.eq.$targetId),and(requester_id.eq.$targetId,addressee_id.eq.$uid)');
+        
+    // (Opcional) Borrar mensajes. Con RLS estricto o ignorando a los bloqueados en la UI, no es estrictamente necesario, 
+    // pero si se desea destrucción total:
+    await _client.from('restricted_messages')
+        .delete()
+        .or('and(sender_id.eq.$uid,receiver_id.eq.$targetId),and(sender_id.eq.$targetId,receiver_id.eq.$uid)');
+  }
+
+  // 11. Eliminar Conexión (Amistad)
+  Future<void> removeConnection(String targetId) async {
+    if (currentUserId == null) return;
+    final uid = currentUserId!;
+    
+    await _client.from('connections')
+        .delete()
+        .or('and(requester_id.eq.$uid,addressee_id.eq.$targetId),and(requester_id.eq.$targetId,addressee_id.eq.$uid)');
+  }
+
+  // 11. Obtener Lista de Usuarios Bloqueados
+  Future<List<String>> getBlockedUsers() async {
+    if (currentUserId == null) return [];
+    final response = await _client
+        .from('blocks')
+        .select('blocked_id')
+        .eq('blocker_id', currentUserId!);
+    
+    return List<String>.from((response as List).map((b) => b['blocked_id'].toString()));
+  }
 }

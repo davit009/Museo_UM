@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../services/muro_service.dart';
+import '../../services/social_service.dart';
 import '../login/login_screen.dart';
 import '../widgets/connect_button.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MuroScreen extends StatefulWidget {
   const MuroScreen({super.key});
@@ -15,7 +17,10 @@ class _MuroScreenState extends State<MuroScreen> {
 
   final _muroService = MuroService();
   final _textController = TextEditingController();
+  final _textFocusNode = FocusNode();
   List<Map<String, dynamic>> _posts = [];
+  Map<String, dynamic>? _myProfile;
+  String _currentFilter = 'Todos'; // 'Todos', 'Mi Carrera', 'Mi Generación'
   bool _isLoading = true;
   bool _isPosting = false;
 
@@ -28,6 +33,7 @@ class _MuroScreenState extends State<MuroScreen> {
   @override
   void dispose() {
     _textController.dispose();
+    _textFocusNode.dispose();
     super.dispose();
   }
 
@@ -35,7 +41,11 @@ class _MuroScreenState extends State<MuroScreen> {
     setState(() => _isLoading = true);
     try {
       final posts = await _muroService.fetchPosts();
-      setState(() => _posts = posts);
+      final myProfile = await _muroService.getMyProfile();
+      setState(() {
+        _posts = posts;
+        _myProfile = myProfile;
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -47,6 +57,29 @@ class _MuroScreenState extends State<MuroScreen> {
     }
   }
 
+  List<Map<String, dynamic>> get _filteredPosts {
+    if (_currentFilter == 'Todos' || _myProfile == null) return _posts;
+    return _posts.where((post) {
+      final perfil = post['profiles'];
+      if (perfil == null) return false;
+      if (_currentFilter == 'Mi Carrera') {
+        return perfil['carrera'] == _myProfile!['carrera'];
+      }
+      if (_currentFilter == 'Mi Generación') {
+        return perfil['generacion'] == _myProfile!['generacion'];
+      }
+      return true;
+    }).toList();
+  }
+
+  Future<void> _reaccionar(int postId, String reactionType) async {
+    if (_muroService.currentUser == null) return;
+    try {
+      await _muroService.toggleReaction(postId, reactionType);
+      await _loadPosts();
+    } catch (_) {}
+  }
+
   Future<void> _publicar() async {
     final texto = _textController.text.trim();
     if (texto.isEmpty) return;
@@ -55,13 +88,16 @@ class _MuroScreenState extends State<MuroScreen> {
     try {
       await _muroService.createPost(texto);
       _textController.clear();
+      FocusScope.of(context).unfocus();
       await _loadPosts();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: Colors.red),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isPosting = false);
     }
@@ -81,13 +117,51 @@ class _MuroScreenState extends State<MuroScreen> {
   }
 
   String _formatFecha(String isoDate) {
-    final dt = DateTime.parse(isoDate).toLocal();
-    final ahora = DateTime.now();
-    final diff = ahora.difference(dt);
-    if (diff.inMinutes < 1) return 'ahora';
-    if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'hace ${diff.inHours} h';
-    return '${dt.day}/${dt.month}/${dt.year}';
+    try {
+      final dt = DateTime.parse(isoDate).toLocal();
+      final ahora = DateTime.now();
+      final diff = ahora.difference(dt);
+      if (diff.inMinutes < 1) return 'ahora';
+      if (diff.inMinutes < 60) return 'hace ${diff.inMinutes} min';
+      if (diff.inHours < 24) return 'hace ${diff.inHours} h';
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> _reportar(int postId) async {
+    final reasonCtrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reportar publicación'),
+        content: TextField(
+          controller: reasonCtrl,
+          decoration: const InputDecoration(hintText: '¿Cuál es el motivo del reporte?'),
+          maxLines: 2,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, reasonCtrl.text),
+            child: const Text('Enviar reporte', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (result != null && result.trim().isNotEmpty) {
+      try {
+        await Supabase.instance.client.from('reports').insert({
+          'post_id': postId,
+          'reporter_id': _muroService.currentUser!.id,
+          'reason': result.trim()
+        });
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reporte enviado al administrador.', style: TextStyle(color: Colors.white)), backgroundColor: Color(0xFF1B9E8A)));
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al procesar: ${e.toString().split("Exception: ").last}'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   void _mostrarPerfil(BuildContext context, String targetUserId, Map<String, dynamic> perfil, bool esMio, bool estaLogueado) {
@@ -95,6 +169,7 @@ class _MuroScreenState extends State<MuroScreen> {
     final carrera = perfil['carrera'] as String? ?? 'Carrera no especificada';
     final generacion = perfil['generacion'] as String? ?? 'Generación no especificada';
     final biografia = perfil['biografia'] as String? ?? '';
+    final esMentor = perfil['mentoria_abierta'] == true;
 
     showModalBottomSheet(
       context: context,
@@ -129,7 +204,27 @@ class _MuroScreenState extends State<MuroScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(nombre, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(nombre, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  if (esMentor) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: const Color(0xFF1B9E8A).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.school, size: 14, color: Color(0xFF1B9E8A)),
+                          SizedBox(width: 4),
+                          Text('Mentor', style: TextStyle(color: Color(0xFF1B9E8A), fontSize: 12, fontWeight: FontWeight.bold))
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               const SizedBox(height: 8),
               if (carrera.isNotEmpty || generacion.isNotEmpty)
                 Container(
@@ -156,7 +251,32 @@ class _MuroScreenState extends State<MuroScreen> {
               if (!esMio && estaLogueado) ...[
                 SizedBox(
                   width: double.infinity,
-                  child: ConnectButton(targetUserId: targetUserId, targetUserName: nombre),
+                  child: ConnectButton(
+                    targetUserId: targetUserId, 
+                    targetUserName: nombre,
+                    onConnectPressed: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('¡Solicitud enviada a $nombre!'),
+                          backgroundColor: const Color(0xFF1B9E8A),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await SocialService().blockUser(targetUserId);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Has bloqueado a $nombre. Sus publicaciones y mensajes han sido ocultados.')),
+                    );
+                    _loadPosts(); 
+                  },
+                  icon: const Icon(Icons.block, color: Colors.red),
+                  label: const Text('Bloquear Usuario', style: TextStyle(color: Colors.red)),
                 )
               ],
               const SizedBox(height: 20),
@@ -244,6 +364,7 @@ class _MuroScreenState extends State<MuroScreen> {
                       Expanded(
                         child: TextField(
                           controller: _textController,
+                          focusNode: _textFocusNode,
                           maxLines: 3,
                           minLines: 1,
                           maxLength: 280,
@@ -314,38 +435,106 @@ class _MuroScreenState extends State<MuroScreen> {
                   ),
           ),
 
+          if (estaLogueado && _myProfile != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  Text('Ver:', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 12),
+                  _buildFilterChip('Todos'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Mi Carrera'),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Mi Generación'),
+                ],
+              ),
+            ),
+
           const Divider(height: 1),
 
           // ── Lista de posts ──
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _posts.isEmpty
+                : _filteredPosts.isEmpty
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.forum_outlined, size: 64, color: Colors.grey.shade300),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Todavía no hay publicaciones',
-                              style: TextStyle(color: Colors.grey.shade400, fontSize: 16),
-                            ),
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.museum_outlined, size: 80, color: Colors.grey.shade300),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Aún no hay historias aquí. ¡Sé el primero en compartir tu experiencia!',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: () {
+                                  if (estaLogueado) {
+                                    FocusScope.of(context).requestFocus(_textFocusNode);
+                                  } else {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())).then((_) => setState(() {}));
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFE04E4E),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
+                                ),
+                                child: const Text('Escribir una anécdota', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              )
+                            ],
+                          ),
                         ),
                       )
                     : RefreshIndicator(
                         onRefresh: _loadPosts,
                         child: ListView.builder(
                           padding: const EdgeInsets.all(16),
-                          itemCount: _posts.length,
+                          itemCount: _filteredPosts.length,
                           itemBuilder: (context, index) {
-                            final post = _posts[index];
+                            final post = _filteredPosts[index];
                             final targetUserId = post['user_id'] as String;
                             final perfil = post['profiles'] as Map<String, dynamic>?;
                             final username = perfil?['nombre'] as String? ?? perfil?['username'] as String? ?? 'Visitante';
                             final carrera = perfil?['carrera'] as String? ?? '';
+                            final esMentor = perfil?['mentoria_abierta'] == true;
                             final esMio = targetUserId == currentUserId;
+                            
+                            final reactions = List<Map<String, dynamic>>.from(post['post_reactions'] ?? []);
+                            
+                            Widget buildReactionButton(String icon, String type) {
+                              final count = reactions.where((r) => r['reaction_type'] == type).length;
+                              final iReacted = reactions.any((r) => r['reaction_type'] == type && r['user_id'] == currentUserId);
+                              
+                              return InkWell(
+                                onTap: estaLogueado ? () => _reaccionar(post['id'], type) : null,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: iReacted ? _color.withValues(alpha: 0.1) : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: iReacted ? _color : Colors.grey.shade300)
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(icon, style: const TextStyle(fontSize: 16)),
+                                      if (count > 0) ...[
+                                        const SizedBox(width: 4),
+                                        Text('$count', style: TextStyle(color: iReacted ? _color : Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 12)),
+                                      ]
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
 
                             return Card(
                               margin: const EdgeInsets.only(bottom: 16),
@@ -369,17 +558,32 @@ class _MuroScreenState extends State<MuroScreen> {
                                               _mostrarPerfil(context, targetUserId, perfil, esMio, estaLogueado);
                                             }
                                           },
-                                          child: CircleAvatar(
-                                            radius: 20,
-                                            backgroundColor: _color.withValues(alpha: 0.1),
-                                            child: Text(
-                                              username.isNotEmpty ? username[0].toUpperCase() : 'V',
-                                              style: const TextStyle(
-                                                color: _color,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
+                                          child: Stack(
+                                            clipBehavior: Clip.none,
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 20,
+                                                backgroundColor: _color.withValues(alpha: 0.1),
+                                                child: Text(
+                                                  username.isNotEmpty ? username[0].toUpperCase() : 'V',
+                                                  style: const TextStyle(
+                                                    color: _color,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
                                               ),
-                                            ),
+                                              if (esMentor)
+                                                Positioned(
+                                                  bottom: -4,
+                                                  right: -4,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(2),
+                                                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                                    child: const Icon(Icons.school, size: 14, color: Color(0xFF1B9E8A)),
+                                                  ),
+                                                )
+                                            ],
                                           ),
                                         ),
                                         const SizedBox(width: 12),
@@ -452,6 +656,40 @@ class _MuroScreenState extends State<MuroScreen> {
                                               size: 20,
                                             ),
                                           ),
+                                        ] else if (estaLogueado) ...[
+                                            const SizedBox(width: 4),
+                                            PopupMenuButton<String>(
+                                              padding: EdgeInsets.zero,
+                                              icon: Icon(Icons.more_vert, color: Colors.grey.shade400, size: 20),
+                                              onSelected: (value) async {
+                                                if (value == 'report') {
+                                                  _reportar(post['id']);
+                                                } else if (value == 'block') {
+                                                  final conf = await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (_) => AlertDialog(
+                                                      title: const Text('Bloquear usuario'),
+                                                      content: Text('Dejarás de ver publicaciones de $username en el muro.'),
+                                                      actions: [
+                                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+                                                        TextButton(
+                                                          onPressed: () => Navigator.pop(context, true),
+                                                          child: const Text('Bloquear', style: TextStyle(color: Colors.red)),
+                                                        ),
+                                                      ]
+                                                    )
+                                                  );
+                                                  if (conf == true) {
+                                                    await SocialService().blockUser(targetUserId);
+                                                    _loadPosts();
+                                                  }
+                                                }
+                                              },
+                                              itemBuilder: (_) => [
+                                                const PopupMenuItem(value: 'report', child: Text('Reportar publicación')),
+                                                const PopupMenuItem(value: 'block', child: Text('Bloquear usuario', style: TextStyle(color: Colors.red))),
+                                              ],
+                                            ),
                                         ],
                                       ],
                                     ),
@@ -464,6 +702,16 @@ class _MuroScreenState extends State<MuroScreen> {
                                         color: Color(0xFF333333),
                                       ),
                                     ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      children: [
+                                        buildReactionButton('💡', 'inspiracion'),
+                                        const SizedBox(width: 8),
+                                        buildReactionButton('🏛️', 'recuerdo'),
+                                        const SizedBox(width: 8),
+                                        buildReactionButton('🎓', 'consejo'),
+                                      ],
+                                    )
                                   ],
                                 ),
                               ),
@@ -473,6 +721,29 @@ class _MuroScreenState extends State<MuroScreen> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label) {
+    final isSelected = _currentFilter == label;
+    return GestureDetector(
+      onTap: () => setState(() => _currentFilter = label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF1A2B4A) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isSelected ? const Color(0xFF1A2B4A) : Colors.grey.shade300)
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade700,
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }

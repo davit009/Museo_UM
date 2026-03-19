@@ -6,12 +6,14 @@ import '../chat/restricted_chat_screen.dart';
 class ConnectButton extends StatelessWidget {
   final String targetUserId;
   final String targetUserName;
+  final VoidCallback? onConnectPressed;
   final SocialService _socialService = SocialService();
 
   ConnectButton({
     super.key, 
     required this.targetUserId,
     required this.targetUserName,
+    this.onConnectPressed,
   });
 
   @override
@@ -45,7 +47,14 @@ class ConnectButton extends StatelessWidget {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            onPressed: () => _socialService.sendConnectionRequest(targetUserId),
+            onPressed: () async {
+              try {
+                await _socialService.sendConnectionRequest(targetUserId);
+                if (onConnectPressed != null) onConnectPressed!();
+              } catch (e) {
+                // Ignore error locally if already sent
+              }
+            },
           );
         }
 

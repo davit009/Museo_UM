@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class IntroHistoriaScreen extends StatelessWidget {
   const IntroHistoriaScreen({super.key});
 
-  static const Color _darkNavy = Color(0xFF1A2B4A);
+  static const Color _darkNavy = Color(0xFF4A148C);
   static const Color _teal = Color(0xFF1B9E8A);
 
   @override
@@ -32,7 +32,7 @@ class IntroHistoriaScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _InfoCard(
               content:
-                  'El museo de la Universidad de Mendoza es un espacio dedicado '
+                  'El museo de la Universidad de Montemorelos es un espacio dedicado '
                   'a la preservación y difusión del patrimonio cultural y artístico '
                   'de la región. Fundado con el propósito de acercar el arte y la '
                   'historia a la comunidad, se ha convertido en un referente cultural '
@@ -45,7 +45,7 @@ class IntroHistoriaScreen extends StatelessWidget {
               year: 'Fundación',
               description:
                   'Creación del museo como espacio cultural dentro de la '
-                  'Universidad de Mendoza.',
+                  'Universidad de Montemorelos.',
               color: _teal,
               isFirst: true,
             ),

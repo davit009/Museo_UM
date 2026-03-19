@@ -51,10 +51,10 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Ingresar', style: TextStyle(color: Color(0xFF1A2B4A), fontWeight: FontWeight.bold)),
+        title: const Text('Ingresar', style: TextStyle(color: Color(0xFF4A148C), fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF1A2B4A)),
+        iconTheme: const IconThemeData(color: Color(0xFF4A148C)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -63,7 +63,16 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.museum, size: 80, color: Color(0xFF1A2B4A)),
+              SizedBox(
+                height: 150,
+                child: Image.asset(
+                  'assets/images/logo_museo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const Icon(Icons.museum, size: 80, color: Color(0xFF4A148C));
+                  },
+                ),
+              ),
               const SizedBox(height: 24),
               const Text(
                 'Bienvenido de nuevo',
@@ -71,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF1A2B4A),
+                  color: Color(0xFF4A148C),
                   letterSpacing: -0.5,
                 ),
               ),
@@ -88,11 +97,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 keyboardType: TextInputType.text,
                 decoration: InputDecoration(
                   labelText: 'Correo electrónico o Matrícula',
-                  prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF1A2B4A)),
+                  prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF4A148C)),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF1A2B4A), width: 2),
+                    borderSide: const BorderSide(color: Color(0xFF4A148C), width: 2),
                   ),
                 ),
               ),
@@ -102,23 +111,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Contraseña',
-                  prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF1A2B4A)),
+                  prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF4A148C)),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF1A2B4A), width: 2),
+                    borderSide: const BorderSide(color: Color(0xFF4A148C), width: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 40),
               
               if (_isLoading)
-                const Center(child: CircularProgressIndicator(color: Color(0xFF1A2B4A)))
+                const Center(child: CircularProgressIndicator(color: Color(0xFF4A148C)))
               else ...[
                 ElevatedButton(
                   onPressed: _handleSignIn,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A2B4A),
+                    backgroundColor: const Color(0xFF4A148C),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -129,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: _goToRegister,
-                  style: TextButton.styleFrom(foregroundColor: const Color(0xFF1A2B4A)),
+                  style: TextButton.styleFrom(foregroundColor: const Color(0xFF4A148C)),
                   child: const Text('¿No tienes cuenta? Registrate aquí', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
               ],

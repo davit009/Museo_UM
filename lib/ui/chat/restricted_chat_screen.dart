@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../services/social_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import '../../utils/profanity_filter.dart';
+import '../widgets/profile_bottom_sheet.dart';
 
 class RestrictedChatScreen extends StatefulWidget {
   final String targetUserId;
@@ -34,6 +36,18 @@ class _RestrictedChatScreenState extends State<RestrictedChatScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
     
+    if (ProfanityFilter.hasProfanity(text)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('El mensaje contiene lenguaje no permitido en el museo.'),
+            backgroundColor: Colors.red,
+          )
+        );
+      }
+      return;
+    }
+    
     _messageController.clear();
     try {
       await _socialService.sendMessage(widget.targetUserId, text);
@@ -57,12 +71,44 @@ class _RestrictedChatScreenState extends State<RestrictedChatScreen> {
     }
   }
 
+  void _showTargetProfile() async {
+    try {
+      final profile = await _socialService.getProfile(widget.targetUserId);
+      if (profile != null && mounted) {
+        ProfileBottomSheet.show(context, profile);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo cargar el perfil.'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(widget.targetUserName, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: InkWell(
+          onTap: _showTargetProfile,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.white24,
+                child: Text(
+                  widget.targetUserName.isNotEmpty ? widget.targetUserName[0].toUpperCase() : 'V', 
+                  style: const TextStyle(color: Colors.white, fontSize: 14)
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(widget.targetUserName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
         backgroundColor: const Color(0xFF1A2B4A),
         foregroundColor: Colors.white,
       ),

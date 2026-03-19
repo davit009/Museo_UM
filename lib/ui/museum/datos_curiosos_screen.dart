@@ -13,7 +13,7 @@ class DatosCuriososScreen extends StatelessWidget {
         titulo: 'El edificio',
         contenido:
             'El edificio que alberga el museo es uno de los más emblemáticos '
-            'de la Universidad de Mendoza, con una arquitectura que combina '
+            'de la Universidad de Montemorelos, con una arquitectura que combina '
             'elementos clásicos y modernos.',
         icon: Icons.account_balance,
       ),

@@ -12,6 +12,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../profile/profile_screen.dart';
 import '../social/social_hub_screen.dart';
+import '../admin/admin_dashboard_screen.dart';
+import '../notifications/notifications_screen.dart';
+import '../../services/admin_service.dart';
 
 class _Section {
   final String titulo;
@@ -109,15 +112,26 @@ class _HomeScreenState extends State<HomeScreen> {
   late final PageController _pageController;
   late final StreamSubscription<AuthState> _authStateSubscription;
   int _currentPage = 0;
+  bool _isAdmin = false;
+  final _adminService = AdminService();
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _adminService.isCurrentUserAdmin();
+    if (mounted && _isAdmin != isAdmin) {
+      setState(() => _isAdmin = isAdmin);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.82);
     
+    _checkAdminStatus();
     // Escuchar cambios en la sesión para actualizar la UI del Drawer y AppBar
     _authStateSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (mounted) {
+        _checkAdminStatus();
         setState(() {}); // Forzar reconstrucción de la pantalla
       }
     });
@@ -169,32 +183,75 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         centerTitle: true,
         actions: [
-  // Botón de Perfil / Login dinámico según sesión  // En actions:
-  IconButton(
-    icon: Icon(
-      // Si hay usuario en Supabase, muestra la fotito/check, si no, el círculo
-      Supabase.instance.client.auth.currentUser != null 
-        ? Icons.person_pin 
-        : Icons.account_circle_outlined, 
-      color: const Color(0xFF1A2B4A)
-    ),
-    onPressed: () {
-      if (Supabase.instance.client.auth.currentUser != null) {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
-      } else {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-      }
-    },
-  ),
-  // --- BOTÓN DEL MAPA (YA EXISTÍA) ---
-  IconButton(
-    icon: const Icon(Icons.map_outlined, color: Color(0xFF1A2B4A), size: 26),
-    onPressed: () => Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const ComoLlegarScreen()),
-    ),
-  ),
-],
+          // Notification Bell
+          if (Supabase.instance.client.auth.currentUser != null)
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: Supabase.instance.client
+                  .from('in_app_notifications')
+                  .stream(primaryKey: ['id'])
+                  .eq('user_id', Supabase.instance.client.auth.currentUser!.id)
+                  .map((list) => list.where((notif) => notif['leido'] == false).toList()),
+              builder: (context, snapshot) {
+                final unreadCount = snapshot.data?.length ?? 0;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_outlined, color: Color(0xFF1A2B4A), size: 26),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                        );
+                      },
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 8,
+                        top: 10,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            unreadCount > 9 ? '9+' : '$unreadCount',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      )
+                  ],
+                );
+              },
+            ),
+
+          // Perfil / Login dinámico según sesión
+          IconButton(
+            icon: Icon(
+              Supabase.instance.client.auth.currentUser != null 
+                ? Icons.person_pin 
+                : Icons.account_circle_outlined, 
+              color: const Color(0xFF1A2B4A)
+            ),
+            onPressed: () {
+              if (Supabase.instance.client.auth.currentUser != null) {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+              } else {
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+              }
+            },
+          ),
+          
+          // Icono del Mapa
+          IconButton(
+            icon: const Icon(Icons.map_outlined, color: Color(0xFF1A2B4A), size: 26),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ComoLlegarScreen()),
+            ),
+          ),
+        ],
       ),
       drawer: Drawer(
         backgroundColor: Colors.white,
@@ -302,6 +359,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
+              if (_isAdmin)
+                ListTile(
+                  leading: const Icon(Icons.admin_panel_settings, color: Colors.orange),
+                  title: const Text(
+                    'Panel de Administrador',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+                    );
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
                 title: const Text(

@@ -6,8 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
-  static const Color _darkNavy = Color(0xFF1A2B4A);
-  static const Color _teal = Color(0xFF1B9E8A);
+  static const Color _purple = Color(0xFF4A148C);
+  static const Color _darkPurple = Color(0xFF311B92);
+  static const Color _gold = Color(0xFFFFD700);
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +18,7 @@ class SplashScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_teal, _darkNavy],
+            colors: [_purple, _darkPurple],
           ),
         ),
         child: SafeArea(
@@ -28,9 +29,9 @@ class SplashScreen extends StatelessWidget {
               ShaderMask(
                 shaderCallback: (bounds) => const LinearGradient(
                   colors: [
-                    Color(0xFF4FC3F7),
-                    Color(0xFFEFBE3D),
-                    Color(0xFF4DB6AC),
+                    _gold,
+                    Color(0xFFFFA000),
+                    _gold,
                   ],
                 ).createShader(bounds),
                 child: const Text(
@@ -45,7 +46,7 @@ class SplashScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Universidad de Mendoza',
+                'Universidad de Montemorelos',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 15,
@@ -70,7 +71,7 @@ class SplashScreen extends StatelessWidget {
                         onPressed: () => _irAlHome(context),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: _darkNavy,
+                          foregroundColor: _purple,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
@@ -144,9 +145,9 @@ class SplashScreen extends StatelessWidget {
 class _CityscapePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paintYellow = Paint()..color = const Color(0xFFEFBE3D);
-    final paintTeal = Paint()..color = const Color(0xFF4DB6AC).withValues(alpha: 0.6);
-    final paintDark = Paint()..color = const Color(0xFF1A2B4A).withValues(alpha: 0.5);
+    final paintYellow = Paint()..color = const Color(0xFFFFD700); // Gold
+    final paintTeal = Paint()..color = const Color(0xFF7E57C2).withValues(alpha: 0.6); // Light Purple
+    final paintDark = Paint()..color = const Color(0xFF311B92).withValues(alpha: 0.5); // Dark Purple
 
     // Edificio izquierda
     canvas.drawRect(
@@ -205,7 +206,7 @@ class _CityscapePainter extends CustomPainter {
     // Suelo
     canvas.drawRect(
       Rect.fromLTWH(0, size.height * 0.98, size.width, size.height * 0.02),
-      Paint()..color = const Color(0xFF1A2B4A),
+      Paint()..color = const Color(0xFF311B92),
     );
   }
 

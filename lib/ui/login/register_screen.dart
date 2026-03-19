@@ -18,11 +18,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _nombreController = TextEditingController();
   final _matriculaController = TextEditingController();
-  final _carreraController = TextEditingController();
-  final _generacionController = TextEditingController();
+  final _otraCarreraController = TextEditingController();
+  final _generacionInicioController = TextEditingController();
+  final _generacionFinController = TextEditingController();
   
   DateTime? _fechaNacimiento;
   bool _isLoading = false;
+
+  final List<String> _carreras = [
+    'Licenciatura en Arquitectura',
+    'Licenciatura en Artes Visuales',
+    'Licenciatura en Comunicación y Medios',
+    'Licenciatura en Diseño de Comunicación Visual',
+    'Maestría en Dirección de Comunicación',
+    'Licenciatura en Cirujano Dentista',
+    'Licenciatura en Enfermería',
+    'Licenciatura en Médico Cirujano',
+    'Licenciatura en Nutrición',
+    'Licenciatura en Químico Clínico Biólogo',
+    'Licenciatura en Terapia Física y Rehabilitación',
+    'Técnico en Tecnología Dental',
+    'Especialidad en Odontología',
+    'Especialidad en Oftalmología',
+    'Maestría en Salud Pública',
+    'Licenciaturas del Área Educativa',
+    'Posgrados en Educación',
+    'Licenciatura en Administración y Negocios Internacionales',
+    'Licenciatura en Contaduría Pública',
+    'Licenciatura en Derecho',
+    'Posgrados en Administración',
+    'Ingeniería en Electrónica y Telecomunicaciones',
+    'Ingeniería en Gestión de Tecnologías de la Información',
+    'Ingeniería en Sistemas Computacionales',
+    'Ingeniería Industrial y de Sistemas',
+    'Maestría en Redes y Seguridad',
+    'Licenciatura en Música',
+    'Escuela Preparatoria',
+    'Licenciaturas en Psicología',
+    'Posgrados en Psicología',
+    'Licenciatura en Teología',
+    'Otro'
+  ];
+  String? _selectedCarrera;
 
   @override
   void dispose() {
@@ -30,8 +67,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _nombreController.dispose();
     _matriculaController.dispose();
-    _carreraController.dispose();
-    _generacionController.dispose();
+    _otraCarreraController.dispose();
+    _generacionInicioController.dispose();
+    _generacionFinController.dispose();
     super.dispose();
   }
 
@@ -45,9 +83,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF1A2B4A),
+              primary: Color(0xFF4A148C),
               onPrimary: Colors.white,
-              onSurface: Color(0xFF1A2B4A),
+              onSurface: Color(0xFF4A148C),
             ),
           ),
           child: child!,
@@ -70,6 +108,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
+    if (_selectedCarrera == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor selecciona una carrera')),
+      );
+      return;
+    }
+
+    final carreraFinal = _selectedCarrera == 'Otro' 
+        ? _otraCarreraController.text.trim() 
+        : _selectedCarrera!;
+
+    if (_selectedCarrera == 'Otro' && carreraFinal.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor especifica tu carrera')),
+      );
+      return;
+    }
+
+    if (_generacionInicioController.text.trim().isEmpty || _generacionFinController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor completa ambos años de tu generación')),
+      );
+      return;
+    }
+
+    final generacionFinal = '${_generacionInicioController.text.trim()}-${_generacionFinController.text.trim()}';
 
     setState(() => _isLoading = true);
 
@@ -80,8 +144,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         nombre: _nombreController.text.trim(),
         fechaNacimiento: _fechaNacimiento!,
         matricula: _matriculaController.text.trim(),
-        carrera: _carreraController.text.trim(),
-        generacion: _generacionController.text.trim(),
+        carrera: carreraFinal,
+        generacion: generacionFinal,
       );
 
       if (mounted) {
@@ -123,7 +187,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         validator: (value) => value == null || value.isEmpty ? 'Campo requerido' : null,
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: const Color(0xFF1A2B4A)),
+          prefixIcon: Icon(icon, color: const Color(0xFF4A148C)),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: Colors.grey.shade300),
@@ -134,7 +198,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF1A2B4A), width: 2),
+            borderSide: const BorderSide(color: Color(0xFF4A148C), width: 2),
           ),
           filled: true,
           fillColor: Colors.grey.shade50,
@@ -150,11 +214,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       appBar: AppBar(
         title: const Text(
           'Crear Cuenta',
-          style: TextStyle(color: Color(0xFF1A2B4A), fontWeight: FontWeight.bold),
+          style: TextStyle(color: Color(0xFF4A148C), fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF1A2B4A)),
+        iconTheme: const IconThemeData(color: Color(0xFF4A148C)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -169,7 +233,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A2B4A),
+                    color: Color(0xFF4A148C),
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -224,7 +288,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today, color: Color(0xFF1A2B4A)),
+                          const Icon(Icons.calendar_today, color: Color(0xFF4A148C)),
                           const SizedBox(width: 12),
                           Text(
                             _fechaNacimiento == null
@@ -253,25 +317,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   label: 'Matrícula / ID',
                   icon: Icons.badge_outlined,
                 ),
-                _buildTextField(
-                  controller: _carreraController,
-                  label: 'Carrera',
-                  icon: Icons.school_outlined,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCarrera,
+                    decoration: InputDecoration(
+                      labelText: 'Carrera',
+                      prefixIcon: const Icon(Icons.school_outlined, color: Color(0xFF4A148C)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4A148C), width: 2)),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                    isExpanded: true,
+                    items: _carreras.map((String carrera) {
+                      return DropdownMenuItem<String>(
+                        value: carrera,
+                        child: Text(carrera, overflow: TextOverflow.ellipsis),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedCarrera = newValue;
+                      });
+                    },
+                    validator: (value) => value == null ? 'Por favor selecciona una carrera' : null,
+                  ),
                 ),
-                _buildTextField(
-                  controller: _generacionController,
-                  label: 'Generación (Ej. 2020-2024)',
-                  icon: Icons.history_edu,
+                if (_selectedCarrera == 'Otro')
+                  _buildTextField(
+                    controller: _otraCarreraController,
+                    label: 'Especifica tu carrera',
+                    icon: Icons.edit_outlined,
+                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _generacionInicioController,
+                        label: 'Año Inicio',
+                        icon: Icons.history_edu,
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text('-', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    ),
+                    Expanded(
+                      child: _buildTextField(
+                        controller: _generacionFinController,
+                        label: 'Año Fin',
+                        icon: Icons.history_edu,
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 32),
                 if (_isLoading)
-                  const Center(child: CircularProgressIndicator(color: Color(0xFF1A2B4A)))
+                  const Center(child: CircularProgressIndicator(color: Color(0xFF4A148C)))
                 else
                   ElevatedButton(
                     onPressed: _handleRegister,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A2B4A),
+                      backgroundColor: const Color(0xFF4A148C),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(

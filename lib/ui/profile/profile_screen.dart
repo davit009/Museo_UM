@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,6 +14,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _client = Supabase.instance.client;
   bool _isLoading = true;
   Map<String, dynamic>? _profileData;
+  String _profileTheme = 'ocean'; // Default Theme
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         setState(() {
           _profileData = response;
+          _profileTheme = _profileData!['profile_theme'] ?? 'ocean';
           _isLoading = false;
         });
       }
@@ -49,6 +52,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SnackBar(content: Text('Error al cargar perfil: $e'), backgroundColor: Colors.red),
         );
       }
+    }
+  }
+
+  LinearGradient _getGradientTheme(String themeName) {
+    switch (themeName) {
+      case 'forest':
+        return const LinearGradient(colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)]);
+      case 'sunset':
+        return const LinearGradient(colors: [Color(0xFFE64A19), Color(0xFFD84315)]);
+      case 'dark':
+        return const LinearGradient(colors: [Color(0xFF37474F), Color(0xFF263238)]);
+      case 'ocean':
+      default:
+        return const LinearGradient(colors: [Color(0xFF1A2B4A), Color(0xFF0D1B2A)]);
     }
   }
 
@@ -136,6 +153,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final carrera = _profileData!['carrera'] ?? '';
     final generacion = _profileData!['generacion'] ?? '';
     final fechaNacimiento = _profileData!['fecha_nacimiento'];
+    
+    final estadoActual = _profileData!['estado_actual'] as String?;
+    final puestoActual = _profileData!['puesto_actual'] as String?;
+    final empresaActual = _profileData!['empresa_actual'] as String?;
+    final biografia = _profileData!['biografia'] as String?;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -152,11 +174,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () async {
-              await _client.auth.signOut();
-              if (mounted) Navigator.pop(context);
-            },
+             icon: const Icon(Icons.settings),
+             onPressed: () {
+               Navigator.push(
+                 context,
+                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
+               ).then((_) {
+                  // Refresh profile on return
+                  if (mounted) _loadProfile();
+               });
+             },
           ),
         ],
       ),
@@ -167,9 +194,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 24.0),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1A2B4A),
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                gradient: _getGradientTheme(_profileTheme),
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(32),
                   bottomRight: Radius.circular(32),
                 ),
@@ -198,6 +225,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: Colors.white.withValues(alpha: 0.8),
                     ),
                   ),
+
+                  if (estadoActual != null && estadoActual.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16)
+                      ),
+                      child: Text('"$estadoActual"', style: const TextStyle(color: Colors.white, fontStyle: FontStyle.italic)),
+                    ),
+
+                  if ((puestoActual != null && puestoActual.isNotEmpty) || (empresaActual != null && empresaActual.isNotEmpty))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.work_outline, color: Colors.white70, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            (puestoActual?.isNotEmpty == true ? puestoActual! : 'Profesional') +
+                            (empresaActual?.isNotEmpty == true ? ' en $empresaActual' : ''),
+                            style: const TextStyle(color: Colors.white70, fontSize: 14),
+                          ),
+                        ],
+                      )
+                    ),
+
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -223,6 +279,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (biografia != null && biografia.isNotEmpty) ...[
+                    const Text(
+                      'Acerca de mí',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B9E8A),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      biografia,
+                      style: const TextStyle(fontSize: 16, color: Colors.black87, height: 1.5),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+
                   const Text(
                     'Información Universitaria',
                     style: TextStyle(

@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Museo App',
-      theme: ThemeData(useMaterial3: true, primarySwatch: Colors.blue),
+      theme: ThemeData(useMaterial3: true, primarySwatch: Colors.deepPurple),
       
       // 1. Que la app arranque con el Splash que hizo tu compañero
       home: const SplashScreen(), 
