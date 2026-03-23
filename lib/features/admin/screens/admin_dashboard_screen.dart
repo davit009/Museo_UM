@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/admin_service.dart';
+import 'package:museo_app/features/admin/services/admin_service.dart';
 import 'package:intl/intl.dart';
 
 class AdminDashboardScreen extends StatefulWidget {

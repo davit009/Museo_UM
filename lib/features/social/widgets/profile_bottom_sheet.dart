@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/social_service.dart';
-import 'connect_button.dart';
+import 'package:museo_app/features/social/services/social_service.dart';
+import 'package:museo_app/features/social/widgets/connect_button.dart';
 
 class ProfileBottomSheet {
   static void show(

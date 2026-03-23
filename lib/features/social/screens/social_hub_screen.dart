@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/social_service.dart';
-import '../chat/restricted_chat_screen.dart';
-import '../widgets/profile_bottom_sheet.dart';
-import 'community_directory_screen.dart';
+import 'package:museo_app/features/social/services/social_service.dart';
+import 'package:museo_app/features/chat/screens/restricted_chat_screen.dart';
+import 'package:museo_app/features/social/widgets/profile_bottom_sheet.dart';
+import 'package:museo_app/features/social/screens/community_directory_screen.dart';
 
 class SocialHubScreen extends StatefulWidget {
   const SocialHubScreen({super.key});

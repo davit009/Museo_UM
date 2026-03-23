@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
-import '../login/login_screen.dart';
+import 'package:museo_app/features/museum/screens/home_screen.dart';
+import 'package:museo_app/features/auth/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreen extends StatelessWidget {

@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
-import 'intro_historia_screen.dart';
-import 'etapas_screen.dart';
-import 'jubilados_screen.dart';
-import 'musica_screen.dart';
-import 'datos_curiosos_screen.dart';
-import 'informacion_screen.dart';
-import 'como_llegar_screen.dart';
-import 'muro_screen.dart';
-import '../login/login_screen.dart';
+import 'package:museo_app/features/museum/screens/intro_historia_screen.dart';
+import 'package:museo_app/features/museum/screens/etapas_screen.dart';
+import 'package:museo_app/features/museum/screens/jubilados_screen.dart';
+import 'package:museo_app/features/museum/screens/musica_screen.dart';
+import 'package:museo_app/features/museum/screens/datos_curiosos_screen.dart';
+import 'package:museo_app/features/museum/screens/informacion_screen.dart';
+import 'package:museo_app/features/museum/screens/como_llegar_screen.dart';
+import 'package:museo_app/features/social/screens/muro_screen.dart';
+import 'package:museo_app/features/auth/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
-import '../profile/profile_screen.dart';
-import '../social/social_hub_screen.dart';
-import '../admin/admin_dashboard_screen.dart';
-import '../notifications/notifications_screen.dart';
-import '../../services/admin_service.dart';
+import 'package:museo_app/features/social/screens/profile_screen.dart';
+import 'package:museo_app/features/social/screens/social_hub_screen.dart';
+import 'package:museo_app/features/admin/screens/admin_dashboard_screen.dart';
+import 'package:museo_app/features/social/screens/notifications_screen.dart';
+import 'package:museo_app/features/admin/services/admin_service.dart';
 
 class _Section {
   final String titulo;
@@ -92,8 +92,8 @@ final _sections = [
     screen: const ComoLlegarScreen(),
   ),
   _Section(
-    titulo: 'Muro',
-    subtitulo: 'Compartí tu experiencia en el museo',
+    titulo: 'Comunidad',
+    subtitulo: 'Explora, conecta y comparte con otros egresados',
     icon: Icons.forum,
     color: const Color(0xFFE04E4E),
     colorSecundario: const Color(0xFF9B1A1A),

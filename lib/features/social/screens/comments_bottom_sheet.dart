@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/muro_service.dart';
+import 'package:museo_app/features/social/services/muro_service.dart';
 
 class CommentsBottomSheet extends StatefulWidget {
   final int postId;

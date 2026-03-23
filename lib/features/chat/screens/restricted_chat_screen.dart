@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../services/social_service.dart';
+import 'package:museo_app/features/social/services/social_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import '../../utils/profanity_filter.dart';
-import '../widgets/profile_bottom_sheet.dart';
+import 'package:museo_app/core/utils/profanity_filter.dart';
+import 'package:museo_app/features/social/widgets/profile_bottom_sheet.dart';
 
 class RestrictedChatScreen extends StatefulWidget {
   final String targetUserId;

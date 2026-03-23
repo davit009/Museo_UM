@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../widgets/profile_bottom_sheet.dart';
+import 'package:museo_app/features/social/widgets/profile_bottom_sheet.dart';
 
 class CommunityDirectoryScreen extends StatefulWidget {
   const CommunityDirectoryScreen({super.key});

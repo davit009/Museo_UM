@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../services/muro_service.dart';
-import '../../services/social_service.dart';
-import '../login/login_screen.dart';
-import '../widgets/connect_button.dart';
+import 'package:museo_app/features/social/services/muro_service.dart';
+import 'package:museo_app/features/social/services/social_service.dart';
+import 'package:museo_app/features/auth/screens/login_screen.dart';
+import 'package:museo_app/features/social/widgets/connect_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'comments_bottom_sheet.dart';
+import 'package:museo_app/features/social/screens/comments_bottom_sheet.dart';
 
 class MuroScreen extends StatefulWidget {
   const MuroScreen({super.key});
@@ -311,7 +311,7 @@ class _MuroScreenState extends State<MuroScreen> {
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
         backgroundColor: _color,
-        title: const Text('Muro de Experiencias'),
+        title: const Text('Comunidad UM'),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -343,7 +343,7 @@ class _MuroScreenState extends State<MuroScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '¿Cómo fue tu visita?',
+                        'Comunidad',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -352,7 +352,7 @@ class _MuroScreenState extends State<MuroScreen> {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Compartí tu experiencia con la comunidad',
+                        'Comparte, conecta y descubre con tu universidad',
                         style: TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
@@ -413,7 +413,11 @@ class _MuroScreenState extends State<MuroScreen> {
                           minLines: 1,
                           maxLength: 280,
                           decoration: InputDecoration(
-                            hintText: 'Contá tu experiencia en el museo...',
+                            hintText: _selectedNewPostCategory == 'Duda' ? 'Expresa tu duda a la comunidad...' :
+                                      _selectedNewPostCategory == 'Empleo' ? 'Comparte una oportunidad laboral...' :
+                                      _selectedNewPostCategory == 'Aviso' ? 'Escribe un aviso para todos...' :
+                                      _selectedNewPostCategory == 'Proyecto' ? 'Cuéntanos sobre tu nuevo proyecto...' :
+                                      'Aporta a la red universitaria...',
                             hintStyle: TextStyle(color: Colors.grey.shade400),
                             filled: true,
                             fillColor: const Color(0xFFF5F5F5),
@@ -483,42 +487,68 @@ class _MuroScreenState extends State<MuroScreen> {
 
           if (estaLogueado && _myProfile != null)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               color: Colors.white,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    Text('Comunidad:', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13)),
-                    const SizedBox(width: 12),
-                    _buildFilterChip('Todos', isCategory: false),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Mi Carrera', isCategory: false),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Mi Generación', isCategory: false),
-                  ],
-                ),
-              ),
-            ),
-          
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            color: Colors.white,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  Text('Tema:', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Icon(Icons.filter_list, color: Color(0xFF1A2B4A), size: 20),
+                  const SizedBox(width: 8),
+                  const Text('Filtros:', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2B4A), fontSize: 13)),
                   const SizedBox(width: 12),
-                  ..._categorias.map((cat) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _buildFilterChip(cat, isCategory: true)
-                  )),
+                  Expanded(
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: _currentFilter,
+                          icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _currentFilter = val);
+                          },
+                          items: ['Todos', 'Mi Carrera', 'Mi Generación'].map((f) {
+                            return DropdownMenuItem(value: f, child: Text(f, overflow: TextOverflow.ellipsis));
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: _currentCategoryFilter,
+                          icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                          onChanged: (val) {
+                            if (val != null) setState(() => _currentCategoryFilter = val);
+                          },
+                          items: _categorias.map((c) {
+                            return DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis));
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-
           const Divider(height: 1),
 
           // ── Lista de posts ──
@@ -535,7 +565,7 @@ class _MuroScreenState extends State<MuroScreen> {
                               Icon(Icons.museum_outlined, size: 80, color: Colors.grey.shade300),
                               const SizedBox(height: 16),
                               Text(
-                                'Aún no hay historias aquí. ¡Sé el primero en compartir tu experiencia!',
+                                'Aún no hay publicaciones aquí. ¡Anímate a iniciar la conversación!',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
                               ),
@@ -553,7 +583,7 @@ class _MuroScreenState extends State<MuroScreen> {
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
                                 ),
-                                child: const Text('Escribir una anécdota', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                child: const Text('Crear Primera Publicación', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                               )
                             ],
                           ),
@@ -832,32 +862,5 @@ class _MuroScreenState extends State<MuroScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, {required bool isCategory}) {
-    final isSelected = isCategory ? _currentCategoryFilter == label : _currentFilter == label;
-    return GestureDetector(
-      onTap: () => setState(() {
-        if (isCategory) {
-          _currentCategoryFilter = label;
-        } else {
-          _currentFilter = label;
-        }
-      }),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1A2B4A) : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? const Color(0xFF1A2B4A) : Colors.grey.shade300)
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.grey.shade700,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
+
 }

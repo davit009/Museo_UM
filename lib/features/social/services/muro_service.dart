@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../utils/profanity_filter.dart';
-import 'social_service.dart';
+import 'package:museo_app/core/utils/profanity_filter.dart';
+import 'package:museo_app/features/social/services/social_service.dart';
 
 class MuroService {
   final SupabaseClient _client = Supabase.instance.client;

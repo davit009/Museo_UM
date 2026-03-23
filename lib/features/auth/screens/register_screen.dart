@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/auth_service.dart';
+import 'package:museo_app/features/auth/services/auth_service.dart';
 import 'package:intl/intl.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -12,7 +12,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _authService = AuthService();
-  
+
   // Controladores
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -60,7 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     'Licenciaturas en Psicología',
     'Posgrados en Psicología',
     'Licenciatura en Teología',
-    'Otro'
+    'Otro',
   ];
   String? _selectedCarrera;
 
@@ -106,10 +106,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     if (_fechaNacimiento == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor selecciona tu fecha de nacimiento')),
+        const SnackBar(
+          content: Text('Por favor selecciona tu fecha de nacimiento'),
+        ),
       );
       return;
     }
@@ -120,8 +122,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    final carreraFinal = _selectedCarrera == 'Otro' 
-        ? _otraCarreraController.text.trim() 
+    final carreraFinal = _selectedCarrera == 'Otro'
+        ? _otraCarreraController.text.trim()
         : _selectedCarrera!;
 
     if (_selectedCarrera == 'Otro' && carreraFinal.isEmpty) {
@@ -131,14 +133,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (_generacionInicioController.text.trim().isEmpty || _generacionFinController.text.trim().isEmpty) {
+    if (_generacionInicioController.text.trim().isEmpty ||
+        _generacionFinController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor completa ambos años de tu generación')),
+        const SnackBar(
+          content: Text('Por favor completa ambos años de tu generación'),
+        ),
       );
       return;
     }
 
-    final generacionFinal = '${_generacionInicioController.text.trim()}-${_generacionFinController.text.trim()}';
+    final generacionFinal =
+        '${_generacionInicioController.text.trim()}-${_generacionFinController.text.trim()}';
 
     setState(() => _isLoading = true);
 
@@ -164,7 +170,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context); // Vuelve a la pantalla de login (o navega al home)
+        Navigator.pop(
+          context,
+        ); // Vuelve a la pantalla de login (o navega al home)
       }
     } catch (e) {
       if (mounted) {
@@ -194,7 +202,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         controller: controller,
         obscureText: isPassword,
         keyboardType: keyboardType,
-        validator: isRequired ? (value) => value == null || value.isEmpty ? 'Campo requerido' : null : null,
+        validator: isRequired
+            ? (value) =>
+                  value == null || value.isEmpty ? 'Campo requerido' : null
+            : null,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon, color: const Color(0xFF4A148C)),
@@ -224,7 +235,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       appBar: AppBar(
         title: const Text(
           'Crear Cuenta',
-          style: TextStyle(color: Color(0xFF4A148C), fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Color(0xFF4A148C),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -255,7 +269,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 32),
 
                 // Datos de la cuenta
-                const Text('Datos de Cuenta', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                const Text(
+                  'Datos de Cuenta',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _buildTextField(
                   controller: _emailController,
@@ -275,7 +295,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
 
                 // Datos Personales
-                const Text('Información Personal', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                const Text(
+                  'Información Personal',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 _buildTextField(
                   controller: _nombreController,
@@ -290,7 +316,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onTap: () => _selectDate(context),
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
                         borderRadius: BorderRadius.circular(12),
@@ -298,15 +327,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today, color: Color(0xFF4A148C)),
+                          const Icon(
+                            Icons.calendar_today,
+                            color: Color(0xFF4A148C),
+                          ),
                           const SizedBox(width: 12),
                           Text(
                             _fechaNacimiento == null
                                 ? 'Fecha de Nacimiento'
-                                : DateFormat('dd/MM/yyyy').format(_fechaNacimiento!),
+                                : DateFormat(
+                                    'dd/MM/yyyy',
+                                  ).format(_fechaNacimiento!),
                             style: TextStyle(
                               fontSize: 16,
-                              color: _fechaNacimiento == null ? Colors.grey.shade600 : Colors.black87,
+                              color: _fechaNacimiento == null
+                                  ? Colors.grey.shade600
+                                  : Colors.black87,
                             ),
                           ),
                         ],
@@ -320,9 +356,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
 
                 // Datos Universitarios
-                const Text('Datos Universitarios', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                const Text(
+                  'Datos Universitarios',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
                 const SizedBox(height: 12),
-                
+
                 Container(
                   margin: const EdgeInsets.only(bottom: 16.0),
                   decoration: BoxDecoration(
@@ -331,17 +373,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     border: Border.all(color: Colors.grey.shade300),
                   ),
                   child: SwitchListTile(
-                    title: const Text('Soy Egresado / Ex Alumno', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4A148C))),
-                    subtitle: const Text('Activa esto si ya concluiste tu carrera', style: TextStyle(fontSize: 12)),
+                    title: const Text(
+                      'Soy Egresado / Ex Alumno',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF4A148C),
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Activa esto si ya concluiste tu carrera',
+                      style: TextStyle(fontSize: 12),
+                    ),
                     value: _esEgresado,
                     onChanged: (val) => setState(() => _esEgresado = val),
-                    activeColor: const Color(0xFF4A148C),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    activeThumbColor: const Color(0xFF4A148C),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
 
                 if (_esEgresado) ...[
-                  const Text('Experiencia Profesional (Opcional)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const Text(
+                    'Experiencia Profesional (Opcional)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   _buildTextField(
                     controller: _puestoController,
@@ -363,11 +422,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: SwitchListTile(
-                      title: const Text('Abierto a dar Mentorías', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF4A148C))),
-                      subtitle: const Text('Permite que alumnos te contacten', style: TextStyle(fontSize: 12)),
+                      title: const Text(
+                        'Abierto a dar Mentorías',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4A148C),
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Permite que alumnos te contacten',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       value: _mentoriaAbierta,
-                      onChanged: (val) => setState(() => _mentoriaAbierta = val),
-                      activeColor: const Color(0xFF4A148C),
+                      onChanged: (val) =>
+                          setState(() => _mentoriaAbierta = val),
+                      activeThumbColor: const Color(0xFF4A148C),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -383,13 +452,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: DropdownButtonFormField<String>(
-                    value: _selectedCarrera,
+                    initialValue: _selectedCarrera,
                     decoration: InputDecoration(
                       labelText: 'Carrera',
-                      prefixIcon: const Icon(Icons.school_outlined, color: Color(0xFF4A148C)),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4A148C), width: 2)),
+                      prefixIcon: const Icon(
+                        Icons.school_outlined,
+                        color: Color(0xFF4A148C),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: Color(0xFF4A148C),
+                          width: 2,
+                        ),
+                      ),
                       filled: true,
                       fillColor: Colors.grey.shade50,
                     ),
@@ -405,7 +489,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         _selectedCarrera = newValue;
                       });
                     },
-                    validator: (value) => value == null ? 'Por favor selecciona una carrera' : null,
+                    validator: (value) => value == null
+                        ? 'Por favor selecciona una carrera'
+                        : null,
                   ),
                 ),
                 if (_selectedCarrera == 'Otro')
@@ -426,7 +512,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text('-', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey)),
+                      child: Text(
+                        '-',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey,
+                        ),
+                      ),
                     ),
                     Expanded(
                       child: _buildTextField(
@@ -441,7 +534,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 const SizedBox(height: 32),
                 if (_isLoading)
-                  const Center(child: CircularProgressIndicator(color: Color(0xFF4A148C)))
+                  const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF4A148C)),
+                  )
                 else
                   ElevatedButton(
                     onPressed: _handleRegister,
@@ -456,7 +551,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     child: const Text(
                       'CREAR CUENTA',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
                     ),
                   ),
                 const SizedBox(height: 24),

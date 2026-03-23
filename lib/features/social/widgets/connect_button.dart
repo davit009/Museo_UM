@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../services/social_service.dart';
+import 'package:museo_app/features/social/services/social_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../chat/restricted_chat_screen.dart';
+import 'package:museo_app/features/chat/screens/restricted_chat_screen.dart';
 
 class ConnectButton extends StatelessWidget {
   final String targetUserId;

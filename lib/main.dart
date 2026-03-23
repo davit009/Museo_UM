@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'core/constants.dart';
-import 'ui/login/login_screen.dart';
-import 'ui/museum/splash_screen.dart'; 
-import 'ui/museum/home_screen.dart';   
+import 'package:museo_app/core/constants.dart';
+import 'package:museo_app/features/auth/screens/login_screen.dart';
+import 'package:museo_app/features/museum/screens/splash_screen.dart'; 
+import 'package:museo_app/features/museum/screens/home_screen.dart';   
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
