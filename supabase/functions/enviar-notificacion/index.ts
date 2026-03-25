@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4"
 
-// --- DATOS DE TU CUENTA DE SERVICIO ---
+// --- DATOS DE TU CUENTA DE SERVICIO DE FIREBASE ---
 const serviceAccount = {
   project_id: "museoum-97788",
   client_email: "firebase-adminsdk-fbsvc@museoum-97788.iam.gserviceaccount.com",
@@ -16,7 +16,7 @@ function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 }
 
-// Importa la clave PEM privada para usarla con Web Crypto API
+// Importa la clave PEM privada para la Web Crypto API
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   const pemBody = pem
     .replace(/-----BEGIN PRIVATE KEY-----/, "")
@@ -25,14 +25,14 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
   const binaryDer = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
   return await crypto.subtle.importKey(
     "pkcs8",
-    binaryDer.buffer,
+    binaryDer.buffer as ArrayBuffer,
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["sign"]
   );
 }
 
-// Genera un JWT firmado para autenticarse con Google APIs
+// Genera un Access Token de Google OAuth2 firmando un JWT con la service account
 async function getGoogleAccessToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
@@ -57,7 +57,6 @@ async function getGoogleAccessToken(): Promise<string> {
 
   const jwt = `${signingInput}.${arrayBufferToBase64Url(signature)}`;
 
-  // Intercambia el JWT por un Access Token de OAuth2
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -68,22 +67,71 @@ async function getGoogleAccessToken(): Promise<string> {
   return tokenData.access_token as string;
 }
 
+// Determina el receptor y el contenido de la notificación según la tabla de origen
+function resolveNotification(
+  table: string,
+  record: Record<string, string>
+): { receptorId: string; title: string; body: string } | null {
+
+  switch (table) {
+    case "restricted_messages":
+      // sender_id envía, receiver_id recibe
+      return {
+        receptorId: record.receiver_id,
+        title: "💬 Nuevo mensaje",
+        body: record.content?.slice(0, 80) || "Te enviaron un mensaje.",
+      };
+
+    case "connections":
+      // requester_id solicita conexión a addressee_id
+      return {
+        receptorId: record.addressee_id,
+        title: "🤝 Nueva solicitud de conexión",
+        body: "Alguien quiere conectar contigo.",
+      };
+
+    case "in_app_notifications":
+      // user_id es quien recibe la notificación
+      return {
+        receptorId: record.user_id,
+        title: "🔔 Nueva notificación",
+        body: record.tipo === "like"
+          ? "A alguien le gustó tu publicación."
+          : record.tipo === "comment"
+          ? "Alguien comentó en tu publicación."
+          : "Tienes una nueva interacción.",
+      };
+
+    default:
+      return null;
+  }
+}
+
 serve(async (req: Request) => {
   try {
     const payload = await req.json();
     const record = payload.record;
+    // Supabase envía el nombre de la tabla en el payload del webhook
+    const table: string = payload.table ?? "";
 
-    const receptorId = record.receptor_id || record.user_id;
+    const resolved = resolveNotification(table, record);
 
-    if (!receptorId) {
-      console.log("No se encontró receptor_id en el payload");
-      return new Response("No receptor_id", { status: 400 });
+    if (!resolved) {
+      console.log(`Tabla '${table}' no configurada para notificaciones.`);
+      return new Response("Table not handled", { status: 200 });
     }
 
-    // 1. Obtener Access Token de Google OAuth2 (sin librerías de Node.js)
+    const { receptorId, title, body } = resolved;
+
+    if (!receptorId) {
+      console.log("No se encontró receptor en el payload:", record);
+      return new Response("No receptor found", { status: 400 });
+    }
+
+    // 1. Obtener Access Token de Google
     const accessToken = await getGoogleAccessToken();
 
-    // 2. Crear cliente de Supabase para buscar el token FCM del dispositivo
+    // 2. Buscar el token FCM del dispositivo del receptor
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -96,11 +144,11 @@ serve(async (req: Request) => {
       .single();
 
     if (userError || !userData) {
-      console.error("Error/Token no encontrado para el usuario:", receptorId);
+      console.log(`Token FCM no encontrado para usuario: ${receptorId}. El usuario puede no tener la app.`);
       return new Response("Token not found", { status: 404 });
     }
 
-    // 3. Enviar la notificación a Firebase Cloud Messaging (API v1)
+    // 3. Enviar la notificación via Firebase Cloud Messaging API v1
     const fcmRes = await fetch(
       `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
       {
@@ -112,19 +160,15 @@ serve(async (req: Request) => {
         body: JSON.stringify({
           message: {
             token: userData.token,
-            notification: {
-              title: "¡Nueva interacción!",
-              body: "Alguien ha interactuado con tu museo.",
-            },
-            data: {
-              route: "/home",
-            },
+            notification: { title, body },
+            data: { table, route: "/home" },
           },
         }),
       }
     );
 
     const result = await fcmRes.json();
+    console.log("FCM response:", JSON.stringify(result));
     return new Response(JSON.stringify(result), { status: 200 });
 
   } catch (error) {

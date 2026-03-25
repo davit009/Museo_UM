@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:museo_app/core/constants.dart';
+import 'package:museo_app/core/services/push_notification_service.dart';
 import 'package:museo_app/features/auth/screens/login_screen.dart';
-import 'package:museo_app/features/museum/screens/splash_screen.dart'; 
-import 'package:museo_app/features/museum/screens/home_screen.dart';   
+import 'package:museo_app/features/museum/screens/splash_screen.dart';
+import 'package:museo_app/features/museum/screens/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,9 +14,12 @@ Future<void> main() async {
   await Firebase.initializeApp();
 
   await Supabase.initialize(
-    url: SupabaseConstants.url, 
+    url: SupabaseConstants.url,
     anonKey: SupabaseConstants.anonKey,
   );
+
+  // Inicializa notificaciones push y guarda el token FCM en Supabase
+  await PushNotificationService().initialize();
 
   runApp(const MyApp());
 }
