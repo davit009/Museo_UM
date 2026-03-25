@@ -18,8 +18,10 @@ Future<void> main() async {
     anonKey: SupabaseConstants.anonKey,
   );
 
-  // Inicializa notificaciones push y guarda el token FCM en Supabase
-  await PushNotificationService().initialize();
+  // Inicializa notificaciones push en background (no bloquea el arranque)
+  PushNotificationService().initialize().catchError((e) {
+    print('Push notifications no disponibles: $e');
+  });
 
   runApp(const MyApp());
 }
