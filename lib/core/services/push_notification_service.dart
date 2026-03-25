@@ -1,0 +1,58 @@
+import 'dart:io';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class PushNotificationService {
+  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
+
+  Future<void> initialize() async {
+    // 1. Solicitar permisos (Importante para iOS y Android 13+)
+    NotificationSettings settings = await _fcm.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      print('Permisos de notificación concedidos.');
+      
+      // 2. Obtener el token del dispositivo
+      String? token = await _fcm.getToken();
+      if (token != null) {
+        print('FCM Token: $token');
+        await _saveTokenToSupabase(token);
+      }
+
+      // 3. Escuchar si el token cambia (por si caduca y se genera uno nuevo)
+      _fcm.onTokenRefresh.listen(_saveTokenToSupabase);
+      
+      // 4. (Opcional) Configurar qué hacer si llega un mensaje estando la app abierta
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        print('Mensaje recibido en primer plano: ${message.notification?.title}');
+        // Aquí podrías mostrar un SnackBar si lo deseas
+      });
+    } else {
+      print('Permisos de notificación denegados.');
+    }
+  }
+
+  Future<void> _saveTokenToSupabase(String token) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      // Solo guardamos el token si hay un usuario logueado
+      if (user != null) {
+        // Asumiendo que crearás una tabla llamada 'fcm_tokens' en Supabase
+        await _supabase.from('fcm_tokens').upsert({
+          'user_id': user.id,
+          'token': token,
+          'platform': Platform.operatingSystem, // Opcional, para saber si es android/ios
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        print('Token guardado exitosamente en Supabase para el usuario ${user.id}');
+      }
+    } catch (e) {
+      print('Error al guardar el token en Supabase: $e');
+    }
+  }
+}

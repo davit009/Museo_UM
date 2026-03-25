@@ -15,6 +15,7 @@ import 'package:museo_app/features/social/screens/social_hub_screen.dart';
 import 'package:museo_app/features/admin/screens/admin_dashboard_screen.dart';
 import 'package:museo_app/features/social/screens/notifications_screen.dart';
 import 'package:museo_app/features/admin/services/admin_service.dart';
+import 'package:museo_app/core/services/push_notification_service.dart';
 
 class _Section {
   final String titulo;
@@ -128,10 +129,18 @@ class _HomeScreenState extends State<HomeScreen> {
     _pageController = PageController(viewportFraction: 0.82);
     
     _checkAdminStatus();
+    
+    // Inicializar Push Notifications si el usuario está logueado
+    if (Supabase.instance.client.auth.currentUser != null) {
+      PushNotificationService().initialize();
+    }
     // Escuchar cambios en la sesión para actualizar la UI del Drawer y AppBar
     _authStateSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
       if (mounted) {
         _checkAdminStatus();
+        if (data.event == AuthChangeEvent.signedIn) {
+          PushNotificationService().initialize();
+        }
         setState(() {}); // Forzar reconstrucción de la pantalla
       }
     });

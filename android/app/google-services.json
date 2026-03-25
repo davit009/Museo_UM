@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "402391182092",
+    "project_id": "museoum-97788",
+    "storage_bucket": "museoum-97788.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:402391182092:android:eab4facd23f89fb162b729",
+        "android_client_info": {
+          "package_name": "com.museoum.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCStVaWJoNH3V1zFWAFVsOfcqJPPjMOcI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
