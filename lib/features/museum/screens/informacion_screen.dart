@@ -65,17 +65,17 @@ class InformacionScreen extends StatelessWidget {
                 _ContactoRow(
                   icon: Icons.phone,
                   label: 'Teléfono',
-                  valor: '(0261) 000-0000',
+                  valor: '(826) 263-0900',
                 ),
                 _ContactoRow(
                   icon: Icons.email,
                   label: 'Email',
-                  valor: 'museo@um.edu.ar',
+                  valor: 'museo@um.edu.mx',
                 ),
                 _ContactoRow(
                   icon: Icons.web,
                   label: 'Web',
-                  valor: 'www.um.edu.ar/museo',
+                  valor: 'www.um.edu.mx',
                 ),
               ],
             ),
@@ -88,12 +88,12 @@ class InformacionScreen extends StatelessWidget {
                 _ContactoRow(
                   icon: Icons.camera_alt,
                   label: 'Instagram',
-                  valor: '@museoumdoza',
+                  valor: '@um_mexico',
                 ),
                 _ContactoRow(
                   icon: Icons.facebook,
                   label: 'Facebook',
-                  valor: 'Museo UM Mendoza',
+                  valor: 'Universidad de Montemorelos',
                 ),
               ],
             ),

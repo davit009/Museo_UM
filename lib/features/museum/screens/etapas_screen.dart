@@ -41,7 +41,7 @@ class EtapasScreen extends StatelessWidget {
                       Icon(Icons.history, color: Colors.white, size: 32),
                       SizedBox(width: 12),
                       Text(
-                        'El Origen',
+                        'Tres Etapas, Un Sueño',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 24,
@@ -52,9 +52,9 @@ class EtapasScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'El museo nació como un proyecto de preservación cultural '
-                    'y educativa, con el objetivo de acercar el patrimonio '
-                    'histórico y artístico de Mendoza a toda la comunidad.',
+                    'Nuestra historia recorre un camino de fe en donde la '
+                    'naturaleza y el compromiso educativo han forjado el '
+                    'espíritu de servicio que hoy nos define.',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -66,7 +66,7 @@ class EtapasScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Las Tres Etapas',
+              'Nuestra Evolución',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -76,41 +76,50 @@ class EtapasScreen extends StatelessWidget {
             const SizedBox(height: 16),
             _EtapaCard(
               numero: '01',
-              titulo: 'Primera Etapa',
-              subtitulo: 'Los comienzos',
+              titulo: 'Orígenes (1935-1942)',
+              subtitulo: 'Instituto Comercial Prosperidad',
               descripcion:
-                  'Los primeros años del museo estuvieron marcados por la '
-                  'recolección y catalogación del patrimonio histórico local. '
-                  'Se establecieron las bases de la colección permanente con '
-                  'piezas arqueológicas y documentos históricos de la región.',
+                  'Ubicado en la Calle Prosperidad en Tacubaya, CDMX, inició '
+                  'como un pequeño internado para preparar misioneros bajo la '
+                  'dirección del pastor Alfred G. Parfitt.',
               color: const Color(0xFF1B9E8A),
-              icon: Icons.foundation,
+              icon: Icons.park,
             ),
             const SizedBox(height: 12),
             _EtapaCard(
               numero: '02',
-              titulo: 'Segunda Etapa',
-              subtitulo: 'Crecimiento y consolidación',
+              titulo: 'Primera Etapa (1942-1951)',
+              subtitulo: 'Escuela Agrícola Industrial Mexicana',
               descripcion:
-                  'Durante esta etapa, el museo amplió sus colecciones '
-                  'incorporando obras de arte y expresiones culturales '
-                  'contemporáneas. Se inauguraron nuevas salas de exposición '
-                  'y se establecieron programas educativos para escuelas.',
+                  'Traslado a la hacienda "La Carlota" en Montemorelos. '
+                  'Inicio de la construcción de edificios emblemáticos y '
+                  'el primer templo en 1945, forjados con el esfuerzo manual.',
               color: const Color(0xFF2E7D9A),
-              icon: Icons.trending_up,
+              icon: Icons.foundation,
             ),
             const SizedBox(height: 12),
             _EtapaCard(
               numero: '03',
-              titulo: 'Tercera Etapa',
-              subtitulo: 'Modernización y apertura',
+              titulo: 'Segunda Etapa (1951-1973)',
+              subtitulo: 'COVOPROM',
               descripcion:
-                  'La etapa actual se caracteriza por la renovación de espacios, '
-                  'la incorporación de tecnología digital en las exposiciones '
-                  'y la apertura a propuestas artísticas de diversas disciplinas. '
-                  'El museo se posiciona como centro cultural referente de Mendoza.',
+                  'Cambio a Colegio Vocacional y Profesional. Destacó el '
+                  'desarrollo armónico de facultades, las industrias escolares '
+                  'y misiones aéreas lideradas por el pastor Baxter.',
               color: const Color(0xFF5B6FA0),
-              icon: Icons.rocket_launch,
+              icon: Icons.airplanemode_active,
+            ),
+            const SizedBox(height: 12),
+            _EtapaCard(
+              numero: '04',
+              titulo: 'Tercera Etapa (1973-Presente)',
+              subtitulo: 'Universidad de Montemorelos',
+              descripcion:
+                  'Decretada oficialmente el 5 de mayo de 1973. Etapa de '
+                  'expansión académica global y excelencia profesional '
+                  'bajo el lema perpetuo "Educar es Redimir".',
+              color: const Color(0xFF4A148C),
+              icon: Icons.school,
             ),
             const SizedBox(height: 24),
             Container(
@@ -129,8 +138,8 @@ class EtapasScreen extends StatelessWidget {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Cada etapa representa un capítulo único en la historia '
-                      'de nuestro museo y su compromiso con la cultura mendocina.',
+                      'Cada etapa representa un capítulo de audacia espiritual '
+                      'en la historia de nuestra universidad.',
                       style: TextStyle(
                         fontSize: 14,
                         color: Color(0xFF7A5C00),

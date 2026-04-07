@@ -24,73 +24,71 @@ class IntroHistoriaScreen extends StatelessWidget {
             _HeroCard(
               icon: Icons.account_balance,
               color: _teal,
-              title: 'Nuestro Museo',
-              subtitle: 'Un espacio de arte, cultura e historia',
+              title: 'George W. Caviness',
+              subtitle: 'Corazón de nuestra memoria universitaria',
             ),
             const SizedBox(height: 20),
-            _SectionTitle('Historia del Museo', _darkNavy),
+            _SectionTitle('Bienvenida e Historia', _darkNavy),
             const SizedBox(height: 12),
             _InfoCard(
               content:
-                  'El museo de la Universidad de Montemorelos es un espacio dedicado '
-                  'a la preservación y difusión del patrimonio cultural y artístico '
-                  'de la región. Fundado con el propósito de acercar el arte y la '
-                  'historia a la comunidad, se ha convertido en un referente cultural '
-                  'de la provincia.',
+                  'Bienvenidos al Museo Universitario George W. Caviness. Aquí, '
+                  'cada objeto guarda el eco de un sacrificio por la educación '
+                  'adventista. Nuestra universidad ha trazado un camino de fe '
+                  'que hoy nos toca continuar, recorriendo etapas que forjaron '
+                  'nuestra identidad actual.',
             ),
             const SizedBox(height: 20),
             _SectionTitle('Línea del Tiempo', _darkNavy),
             const SizedBox(height: 12),
             _TimelineItem(
-              year: 'Fundación',
+              year: '1935 - Orígenes',
               description:
-                  'Creación del museo como espacio cultural dentro de la '
-                  'Universidad de Montemorelos.',
+                  'Fundación del Instituto Comercial Prosperidad en la CDMX. '
+                  'Una pequeña semilla que contenía la grandeza de nuestra visión.',
               color: _teal,
               isFirst: true,
             ),
             _TimelineItem(
-              year: 'Primeras colecciones',
+              year: '1942 - El Traslado',
               description:
-                  'Incorporación de las primeras obras y piezas patrimoniales '
-                  'a la colección permanente.',
+                  'Nacimiento de la Escuela Agrícola Industrial Mexicana en '
+                  'la hacienda "La Carlota", Montemorelos.',
               color: const Color(0xFF2E7D9A),
             ),
             _TimelineItem(
-              year: 'Expansión',
+              year: '1951 - Crecimiento',
               description:
-                  'Ampliación de salas y apertura a nuevas expresiones artísticas '
-                  'y culturales de la región.',
+                  'Autorización del Colegio Vocacional y Profesional (COVOPROM) '
+                  'y ampliación del nivel académico e industrial.',
               color: const Color(0xFF5B6FA0),
             ),
             _TimelineItem(
-              year: 'Actualidad',
+              year: '1973 - Universidad',
               description:
-                  'Espacio vivo de cultura con exposiciones temporales, eventos '
-                  'educativos y programas para toda la comunidad.',
+                  'Decreto oficial de creación de la Universidad de Montemorelos. '
+                  'Amanecer de una nueva era de excelencia profesional.',
               color: _darkNavy,
               isLast: true,
             ),
             const SizedBox(height: 20),
-            _SectionTitle('Misión y Visión', _darkNavy),
+            _SectionTitle('Nuestra Esencia', _darkNavy),
             const SizedBox(height: 12),
             _MisionCard(
               icon: Icons.star,
-              title: 'Misión',
+              title: 'Filosofía',
               content:
-                  'Preservar, investigar y difundir el patrimonio cultural y '
-                  'artístico, fomentando el acceso de la comunidad al conocimiento '
-                  'y la cultura.',
+                  'La verdadera educación significa el desarrollo armonioso '
+                  'de las facultades físicas, mentales y espirituales.',
               color: _teal,
             ),
             const SizedBox(height: 10),
             _MisionCard(
               icon: Icons.visibility,
-              title: 'Visión',
+              title: 'Nuestro Lema',
               content:
-                  'Ser un museo de referencia regional, reconocido por su '
-                  'compromiso con la educación, la inclusión y la valorización '
-                  'del patrimonio cultural mendocino.',
+                  '"Educar es Redimir", nuestro sello inalterable y compromiso '
+                  'eterno con Dios y la humanidad.',
               color: _darkNavy,
             ),
             const SizedBox(height: 24),
