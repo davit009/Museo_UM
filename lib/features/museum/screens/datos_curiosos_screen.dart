@@ -32,7 +32,7 @@ class DatosCuriososScreen extends StatelessWidget {
         contenido:
             'El museo recibe miles de visitantes cada año, incluyendo '
             'estudiantes de todos los niveles educativos, turistas y '
-            'vecinos de la comunidad mendocina.',
+            'miembros de la comunidad universitaria.',
         icon: Icons.people,
       ),
       _Dato(
@@ -48,9 +48,9 @@ class DatosCuriososScreen extends StatelessWidget {
         numero: '05',
         titulo: 'Arte local',
         contenido:
-            'El museo dedica un espacio especial a artistas mendocinos, '
+            'El museo dedica un espacio especial a artistas regionales, '
             'promoviendo el talento local y la expresión artística '
-            'de la región cuyana.',
+            'de Montemorelos, Nuevo León.',
         icon: Icons.palette,
       ),
       _Dato(
@@ -66,9 +66,9 @@ class DatosCuriososScreen extends StatelessWidget {
         numero: '07',
         titulo: 'Historia viva',
         contenido:
-            'Cada sala del museo cuenta una historia diferente de Mendoza, '
-            'desde sus raíces precolombinas hasta la cultura '
-            'contemporánea de la región.',
+            'Cada sala del museo cuenta una historia diferente de la Universidad, '
+            'desde sus orígenes misioneros hasta su impacto global '
+            'contemporáneo.',
         icon: Icons.history_edu,
       ),
     ];

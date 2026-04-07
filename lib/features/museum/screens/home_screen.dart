@@ -62,7 +62,7 @@ final _sections = [
   ),
   _Section(
     titulo: 'Música',
-    subtitulo: 'Conciertos, eventos y patrimonio musical de Mendoza',
+    subtitulo: 'Conciertos, eventos y patrimonio musical de Montemorelos',
     icon: Icons.music_note,
     color: const Color(0xFF7B5EA7),
     colorSecundario: const Color(0xFF4A3570),
@@ -279,12 +279,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(Icons.account_balance, color: Colors.white, size: 48),
                     SizedBox(height: 16),
                     Text(
-                      'MUSEO UM',
+                      'Museo UM',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Montemorelos, N.L., México',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
                       ),
                     ),
                   ],

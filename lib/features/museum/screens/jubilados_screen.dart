@@ -76,7 +76,7 @@ class JubiladosScreen extends StatelessWidget {
               icon: Icons.confirmation_number,
               titulo: 'Entrada Gratuita',
               descripcion:
-                  'Jubilados y pensionados con DNI o credencial ingresan sin cargo '
+                  'Jubilados y pensionados con identificación oficial o credencial ingresan sin cargo '
                   'todos los días de la semana.',
               color: _color,
             ),
@@ -160,7 +160,7 @@ class JubiladosScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    '• Presentar DNI o credencial de jubilado/pensionado\n'
+                    '• Presentar identificación oficial o credencial de jubilado/pensionado\n'
                     '• Inscripción previa para talleres (cupos limitados)\n'
                     '• Acompañante con entrada normal',
                     style: TextStyle(
