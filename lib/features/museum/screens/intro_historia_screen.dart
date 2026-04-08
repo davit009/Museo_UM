@@ -32,7 +32,7 @@ class IntroHistoriaScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _InfoCard(
               content:
-                  'Bienvenidos al Museo Universitario George W. Caviness. Aquí, '
+                  'Bienvenidos al Museo Universitario. Aquí, '
                   'cada objeto guarda el eco de un sacrificio por la educación '
                   'adventista. Nuestra universidad ha trazado un camino de fe '
                   'que hoy nos toca continuar, recorriendo etapas que forjaron '
@@ -92,12 +92,44 @@ class IntroHistoriaScreen extends StatelessWidget {
               color: _darkNavy,
             ),
             const SizedBox(height: 24),
+            _SectionTitle('Personajes Clave en Nuestra Historia', _darkNavy),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: _importantPeople.length,
+              itemBuilder: (context, index) {
+                final person = _importantPeople[index];
+                return _PersonCard(
+                  name: person['name']!,
+                  role: person['role']!,
+                  imageUrl: person['imageUrl']!,
+                  color: (index % 2 == 0) ? _teal : _darkNavy,
+                );
+              },
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 }
+
+final List<Map<String, String>> _importantPeople = List.generate(
+  20,
+  (i) => {
+    'name': 'Nombre ${i + 1}',
+    'role': 'Pionero / Colaborador',
+    'imageUrl': 'https://picsum.photos/200/200?random=$i',
+  },
+);
 
 class _HeroCard extends StatelessWidget {
   final IconData icon;
@@ -168,11 +200,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: color,
-      ),
+      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
     );
   }
 }
@@ -191,7 +219,11 @@ class _InfoCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Text(
           content,
-          style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF444444)),
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.6,
+            color: Color(0xFF444444),
+          ),
         ),
       ),
     );
@@ -234,9 +266,7 @@ class _TimelineItem extends StatelessWidget {
                   ),
                 ),
                 if (!isLast)
-                  Expanded(
-                    child: Container(width: 2, color: Colors.grey[300]),
-                  ),
+                  Expanded(child: Container(width: 2, color: Colors.grey[300])),
               ],
             ),
           ),
@@ -246,7 +276,8 @@ class _TimelineItem extends StatelessWidget {
               child: Card(
                 elevation: 1,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -264,7 +295,9 @@ class _TimelineItem extends StatelessWidget {
                       Text(
                         description,
                         style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF555555)),
+                          fontSize: 14,
+                          color: Color(0xFF555555),
+                        ),
                       ),
                     ],
                   ),
@@ -326,10 +359,80 @@ class _MisionCard extends StatelessWidget {
                   Text(
                     content,
                     style: const TextStyle(
-                        fontSize: 14, height: 1.5, color: Color(0xFF555555)),
+                      fontSize: 14,
+                      height: 1.5,
+                      color: Color(0xFF555555),
+                    ),
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonCard extends StatelessWidget {
+  final String name;
+  final String role;
+  final String imageUrl;
+  final Color color;
+
+  const _PersonCard({
+    required this.name,
+    required this.role,
+    required this.imageUrl,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shadowColor: color.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: color.withValues(alpha: 0.2), width: 2),
+                image: DecorationImage(
+                  image: NetworkImage(imageUrl),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              role,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
