@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/gestures.dart';
 import 'package:museo_app/features/social/services/muro_service.dart';
 import 'package:museo_app/features/social/services/social_service.dart';
 import 'package:museo_app/features/auth/screens/login_screen.dart';
@@ -30,11 +33,98 @@ class _MuroScreenState extends State<MuroScreen> {
 
   bool _isLoading = true;
   bool _isPosting = false;
+  
+  // Tagging
+  List<Map<String, dynamic>> _friends = [];
+  List<Map<String, dynamic>> _filteredFriends = [];
+  bool _showSuggestions = false;
+  final List<Map<String, dynamic>> _selectedTags = [];
+
+  // Images
+  final List<File> _selectedImages = [];
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
     _loadPosts();
+    _loadFriends();
+    _textController.addListener(_onTextChanged);
+  }
+
+  Future<void> _loadFriends() async {
+    final currentUserId = _muroService.currentUser?.id;
+    if (currentUserId == null) return;
+    
+    // Obtenemos conexiones aceptadas
+    SocialService().getAcceptedConnectionsStream().listen((connections) async {
+      List<Map<String, dynamic>> friendsData = [];
+      for (var conn in connections) {
+        final friendId = conn['requester_id'] == currentUserId 
+            ? conn['addressee_id'] 
+            : conn['requester_id'];
+        
+        final profile = await SocialService().getProfile(friendId);
+        if (profile != null) {
+          friendsData.add(profile);
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _friends = friendsData;
+        });
+      }
+    });
+  }
+
+  void _onTextChanged() {
+    final text = _textController.text;
+    final selection = _textController.selection;
+    
+    if (selection.baseOffset <= 0) {
+      if (mounted) setState(() => _showSuggestions = false);
+      return;
+    }
+
+    // Buscar si hay un @ antes del cursor
+    final lastAt = text.substring(0, selection.baseOffset).lastIndexOf('@');
+    if (lastAt != -1) {
+      final query = text.substring(lastAt + 1, selection.baseOffset).toLowerCase();
+      // Solo sugerir si no hay espacios después del @ hasta el cursor
+      if (!query.contains(' ')) {
+        setState(() {
+          _filteredFriends = _friends.where((f) {
+            final name = (f['nombre'] as String? ?? '').toLowerCase();
+            final username = (f['username'] as String? ?? '').toLowerCase();
+            return name.contains(query) || username.contains(query);
+          }).toList();
+          _showSuggestions = _filteredFriends.isNotEmpty;
+        });
+      } else {
+        if (mounted) setState(() => _showSuggestions = false);
+      }
+    } else {
+      if (mounted) setState(() => _showSuggestions = false);
+    }
+  }
+
+  void _selectFriend(Map<String, dynamic> friend) {
+    final text = _textController.text;
+    final selection = _textController.selection;
+    final lastAt = text.substring(0, selection.baseOffset).lastIndexOf('@');
+    
+    final name = friend['nombre'] as String? ?? friend['username'] as String? ?? 'Usuario';
+    
+    final newText = text.replaceRange(lastAt, selection.baseOffset, '@$name ');
+    
+    _textController.text = newText;
+    _textController.selection = TextSelection.collapsed(offset: lastAt + name.length + 2);
+    
+    if (!_selectedTags.any((t) => t['id'] == friend['id'])) {
+      _selectedTags.add(friend);
+    }
+    
+    setState(() => _showSuggestions = false);
   }
 
   @override
@@ -100,8 +190,22 @@ class _MuroScreenState extends State<MuroScreen> {
 
     setState(() => _isPosting = true);
     try {
-      await _muroService.createPost(texto, categoria: _selectedNewPostCategory);
+      // Filtrar los IDs de los amigos que realmente están mencionados en el texto final
+      final currentText = _textController.text;
+      final taggedUserIds = _selectedTags
+          .where((f) => currentText.contains('@${f['nombre']}') || currentText.contains('@${f['username']}'))
+          .map((f) => f['id'] as String)
+          .toList();
+
+      await _muroService.createPost(
+        texto, 
+        categoria: _selectedNewPostCategory,
+        taggedUserIds: taggedUserIds,
+        imageFiles: _selectedImages,
+      );
       _textController.clear();
+      _selectedTags.clear();
+      _selectedImages.clear();
       setState(() => _selectedNewPostCategory = 'General');
       FocusScope.of(context).unfocus();
       await _loadPosts();
@@ -302,6 +406,241 @@ class _MuroScreenState extends State<MuroScreen> {
     );
   }
 
+  Widget _buildMentionSuggestions() {
+    if (!_showSuggestions || _filteredFriends.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 200),
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        itemCount: _filteredFriends.length,
+        itemBuilder: (context, index) {
+          final friend = _filteredFriends[index];
+          final name = friend['nombre'] as String? ?? friend['username'] as String? ?? 'Usuario';
+          final carrera = friend['carrera'] as String? ?? '';
+
+          return ListTile(
+            leading: CircleAvatar(
+              radius: 16,
+              backgroundColor: _color.withValues(alpha: 0.1),
+              child: Text(
+                name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                style: const TextStyle(color: _color, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+            title: Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            subtitle: carrera.isNotEmpty ? Text(carrera, style: const TextStyle(fontSize: 11)) : null,
+            onTap: () => _selectFriend(friend),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPostContent(String content, List<dynamic> mentions) {
+    if (mentions.isEmpty) {
+      return Text(
+        content,
+        style: const TextStyle(
+          fontSize: 15,
+          height: 1.5,
+          color: Color(0xFF333333),
+        ),
+      );
+    }
+
+    final List<InlineSpan> spans = [];
+    final words = content.split(' ');
+
+    for (var i = 0; i < words.length; i++) {
+      final word = words[i];
+      if (word.isEmpty) continue;
+
+      bool isMention = false;
+      Map<String, dynamic>? mentionedProfile;
+      String? mentionedId;
+
+      if (word.startsWith('@')) {
+        final cleanName = word.substring(1).replaceAll(RegExp(r'[^\w\s]'), '');
+        for (var mention in mentions) {
+          final profile = mention['profiles'] as Map<String, dynamic>?;
+          if (profile != null) {
+            final mName = profile['nombre'] as String? ?? '';
+            final mUser = profile['username'] as String? ?? '';
+            if (mName == cleanName || mUser == cleanName) {
+              isMention = true;
+              mentionedProfile = profile;
+              mentionedId = mention['user_id'] as String?;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isMention && mentionedProfile != null && mentionedId != null) {
+        spans.add(
+          TextSpan(
+            text: '$word ',
+            style: const TextStyle(
+              color: Colors.blue,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
+                _mostrarPerfil(
+                  context,
+                  mentionedId!,
+                  mentionedProfile!,
+                  mentionedId == _muroService.currentUser?.id,
+                  _muroService.currentUser != null,
+                );
+              },
+          ),
+        );
+      } else {
+        spans.add(TextSpan(text: '$word '));
+      }
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 15,
+          height: 1.5,
+          color: Color(0xFF333333),
+        ),
+        children: spans,
+      ),
+    );
+  }
+
+  Future<void> _pickImages() async {
+    if (_selectedImages.length >= 3) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Puedes subir un máximo de 3 imágenes.')));
+      return;
+    }
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(
+        imageQuality: 70, // Reducir calidad para optimizar subida
+      );
+      if (images.isNotEmpty) {
+        setState(() {
+          for (var img in images) {
+            if (_selectedImages.length < 3) {
+              _selectedImages.add(File(img.path));
+            }
+          }
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al seleccionar imagen: $e')));
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
+  Widget _buildSelectedImagesPreview() {
+    if (_selectedImages.isEmpty) return const SizedBox.shrink();
+    return Container(
+      height: 70,
+      margin: const EdgeInsets.only(top: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _selectedImages.length,
+        itemBuilder: (context, index) {
+          return Stack(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  image: DecorationImage(
+                    image: FileImage(_selectedImages[index]),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: -4,
+                right: 0,
+                child: IconButton(
+                  icon: const Icon(Icons.cancel, color: Colors.white, size: 20),
+                  onPressed: () => _removeImage(index),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black54,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPostImages(List<dynamic>? imageUrls) {
+    if (imageUrls == null || imageUrls.isEmpty) return const SizedBox.shrink();
+    
+    final urls = List<String>.from(imageUrls);
+    
+    if (urls.length == 1) {
+      return Container(
+        margin: const EdgeInsets.only(top: 12),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(urls[0], fit: BoxFit.cover),
+      );
+    }
+    
+    return Container(
+      height: 180,
+      margin: const EdgeInsets.only(top: 12),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: urls.length,
+        itemBuilder: (context, index) {
+          return Container(
+            width: 160,
+            margin: EdgeInsets.only(right: index == urls.length - 1 ? 0 : 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Image.network(urls[index], fit: BoxFit.cover),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUserId = _muroService.currentUser?.id;
@@ -406,46 +745,68 @@ class _MuroScreenState extends State<MuroScreen> {
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                        child: TextField(
-                          controller: _textController,
-                          focusNode: _textFocusNode,
-                          maxLines: 3,
-                          minLines: 1,
-                          maxLength: 280,
-                          decoration: InputDecoration(
-                            hintText: _selectedNewPostCategory == 'Duda' ? 'Expresa tu duda a la comunidad...' :
-                                      _selectedNewPostCategory == 'Empleo' ? 'Comparte una oportunidad laboral...' :
-                                      _selectedNewPostCategory == 'Aviso' ? 'Escribe un aviso para todos...' :
-                                      _selectedNewPostCategory == 'Proyecto' ? 'Cuéntanos sobre tu nuevo proyecto...' :
-                                      'Aporta a la red universitaria...',
-                            hintStyle: TextStyle(color: Colors.grey.shade400),
-                            filled: true,
-                            fillColor: const Color(0xFFF5F5F5),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide.none,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: _textController,
+                                  focusNode: _textFocusNode,
+                                  maxLines: 3,
+                                  minLines: 1,
+                                  maxLength: 280,
+                                  decoration: InputDecoration(
+                                    hintText: _selectedNewPostCategory == 'Duda' ? 'Expresa tu duda a la comunidad...' :
+                                              _selectedNewPostCategory == 'Empleo' ? 'Comparte una oportunidad laboral...' :
+                                              _selectedNewPostCategory == 'Aviso' ? 'Escribe un aviso para todos...' :
+                                              _selectedNewPostCategory == 'Proyecto' ? 'Cuéntanos sobre tu nuevo proyecto...' :
+                                              'Aporta a la red universitaria...',
+                                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF5F5F5),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 10,
+                                    ),
+                                    counterStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+                                  ),
+                                ),
+                                _buildMentionSuggestions(),
+                                _buildSelectedImagesPreview(),
+                              ],
                             ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            counterStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11),
                           ),
-                        ),
-                      ),
                       const SizedBox(width: 8),
-                      _isPosting
-                          ? const SizedBox(
-                              width: 36,
-                              height: 36,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.send_rounded),
-                              color: _color,
-                              onPressed: _publicar,
-                              tooltip: 'Publicar',
-                            ),
+                      Column(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.add_photo_alternate_outlined),
+                            color: Colors.grey.shade600,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            onPressed: _pickImages,
+                            tooltip: 'Añadir foto',
+                          ),
+                          const SizedBox(height: 8),
+                          _isPosting
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : IconButton(
+                                  icon: const Icon(Icons.send_rounded),
+                                  color: _color,
+                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(),
+                                  onPressed: _publicar,
+                                  tooltip: 'Publicar',
+                                ),
+                        ],
+                      )
                         ],
                       )
                     ],
@@ -807,14 +1168,11 @@ class _MuroScreenState extends State<MuroScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 12),
-                                    Text(
+                                    _buildPostContent(
                                       post['contenido'] ?? '',
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        height: 1.5,
-                                        color: Color(0xFF333333),
-                                      ),
+                                      post['post_mentions'] ?? [],
                                     ),
+                                    _buildPostImages(post['image_urls']),
                                     const SizedBox(height: 16),
                                     Row(
                                       children: [
