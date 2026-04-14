@@ -7,6 +7,13 @@ class PushNotificationService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
   Future<void> initialize() async {
+    // Esto hace que la notificación se vea incluso con la app abierta (especialmente útil en iOS)
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
     // 1. Solicitar permisos (Importante para iOS y Android 13+)
     NotificationSettings settings = await _fcm.requestPermission(
       alert: true,
@@ -27,10 +34,16 @@ class PushNotificationService {
       // 3. Escuchar si el token cambia (por si caduca y se genera uno nuevo)
       _fcm.onTokenRefresh.listen(_saveTokenToSupabase);
       
-      // 4. (Opcional) Configurar qué hacer si llega un mensaje estando la app abierta
+      // 4. Cuando la app está en PRIMER PLANO
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         print('Mensaje recibido en primer plano: ${message.notification?.title}');
-        // Aquí podrías mostrar un SnackBar si lo deseas
+        // Aquí puedes agregar lógica para mostrar un banner o refrescar un chat localmente
+      });
+
+      // 5. Cuando el usuario TOCA la notificación y la app estaba en segundo plano
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        print('¡El usuario tocó la notificación!');
+        // Aquí puedes navegar a una pantalla específica dependiendo del payload
       });
     } else {
       print('Permisos de notificación denegados.');

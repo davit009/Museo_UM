@@ -203,6 +203,35 @@ class _MuroScreenState extends State<MuroScreen> {
         taggedUserIds: taggedUserIds,
         imageFiles: _selectedImages,
       );
+
+      // --- LOGICA DE NOTIFICACIONES PUSH PARA MENCIONADOS ---
+      final miNombre = _myProfile?['nombre'] ?? _myProfile?['username'] ?? 'Un compañero';
+      for (String targetUserId in taggedUserIds) {
+        final res = await Supabase.instance.client
+            .from('fcm_tokens')
+            .select('token')
+            .eq('user_id', targetUserId)
+            .order('updated_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+
+        if (res != null && res['token'] != null) {
+          try {
+            await Supabase.instance.client.functions.invoke(
+              'notify-user',
+              body: {
+                'deviceToken': res['token'],
+                'title': '¡Tienes una nueva mención!',
+                'body': '$miNombre te ha mencionado en el Muro.',
+              },
+            );
+          } catch (e) {
+            print('Error al enviar notificacion push: $e');
+          }
+        }
+      }
+      // -----------------------------------------------------
+
       _textController.clear();
       _selectedTags.clear();
       _selectedImages.clear();
