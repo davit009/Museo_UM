@@ -59,7 +59,6 @@ class PushNotificationService {
         await _supabase.from('fcm_tokens').upsert({
           'user_id': user.id,
           'token': token,
-          'platform': Platform.operatingSystem, // Opcional, para saber si es android/ios
           'updated_at': DateTime.now().toIso8601String(),
         });
         print('Token guardado exitosamente en Supabase para el usuario ${user.id}');
