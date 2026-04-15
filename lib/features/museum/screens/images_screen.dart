@@ -16,199 +16,208 @@ const List<String> _galleryBaseUrls = [
 class ImagesScreen extends StatelessWidget {
   const ImagesScreen({super.key});
 
-  static const Color _primaryColor = Color(0xFF2E7D9A);
-  static const Color _darkColor = Color(0xFF1A2B4A);
+  static const Color _navy  = Color(0xFF0F1C35);
+  static const Color _cream = Color(0xFFF5F0E8);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
+      backgroundColor: _cream,
       appBar: AppBar(
-        backgroundColor: _primaryColor,
-        title: const Text('Galería Multimedia'),
+        backgroundColor: _navy,
+        title: const Text(
+          'GALERÍAS',
+          style: TextStyle(letterSpacing: 2.5, fontSize: 15, fontWeight: FontWeight.w700),
+        ),
         foregroundColor: Colors.white,
         elevation: 0,
-      ),
-      body: Stack(
-        children: [
-          Container(
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2),
+          child: Container(
+            height: 2,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFFF0F4F8), Color(0xFFE7EEF5)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+                colors: [Color(0xFF6B5000), Color(0xFFD4AF5A), Color(0xFF6B5000)],
               ),
             ),
           ),
-          Positioned(
-            top: -70,
-            right: -50,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _primaryColor.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -80,
-            left: -60,
-            child: Container(
-              width: 220,
-              height: 220,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _darkColor.withValues(alpha: 0.06),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [_primaryColor, _darkColor],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _darkColor.withValues(alpha: 0.18),
-                          blurRadius: 24,
-                          offset: const Offset(0, 12),
-                        ),
-                      ],
+        ),
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _GalleryHero(total: _imageFolders.length)),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final folder = _imageFolders[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _FolderCard(
+                      title: folder['title'] as String,
+                      subtitle: folder['subtitle'] as String,
+                      icon: folder['icon'] as IconData,
+                      color: folder['color'] as Color,
+                      folderPath: folder['path'] as String,
+                      index: index,
                     ),
-                    child: Column(
+                  );
+                },
+                childCount: _imageFolders.length,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Hero banner ──────────────────────────────────────────────────────────────
+class _GalleryHero extends StatelessWidget {
+  final int total;
+  const _GalleryHero({required this.total});
+
+  static const Color _gold      = Color(0xFFB8973A);
+  static const Color _goldLight = Color(0xFFD4AF5A);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0F1C35), Color(0xFF1B3A5C), Color(0xFF0F1C35)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -50, right: -50,
+            child: Container(
+              width: 180, height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _gold.withValues(alpha: 0.06),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -30, left: -30,
+            child: Container(
+              width: 120, height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.03),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 54, height: 54,
+                      decoration: BoxDecoration(
+                        color: _gold.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _gold.withValues(alpha: 0.45), width: 1.5),
+                      ),
+                      child: const Icon(Icons.photo_library_rounded, color: _goldLight, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.18),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.photo_library_rounded,
-                                color: Colors.white,
-                                size: 30,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            const Expanded(
-                              child: Text(
-                                'Galerías Históricas',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  height: 1.1,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
                         const Text(
-                          'Explora el archivo visual del museo con colecciones organizadas por época, institución y memoria histórica.',
+                          'ARCHIVO VISUAL',
                           style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            height: 1.6,
+                            color: _goldLight,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2.5,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            _InfoChip(
-                              icon: Icons.collections_rounded,
-                              label: '${_imageFolders.length} colecciones',
-                            ),
-                            const _InfoChip(
-                              icon: Icons.auto_awesome,
-                              label: 'Diseño editorial',
-                            ),
-                            const _InfoChip(
-                              icon: Icons.timeline_rounded,
-                              label: 'Archivo histórico',
-                            ),
-                          ],
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Galerías Históricas',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Container(
-                        width: 4,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: _primaryColor,
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Colecciones',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: _darkColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Selecciona una carpeta para explorar su contenido.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.blueGrey[700],
-                      height: 1.45,
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(width: 32, height: 1.5, color: _gold),
+                    Container(
+                      width: 5, height: 5,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: _gold),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.05,
-                    ),
-                    itemCount: _imageFolders.length,
-                    itemBuilder: (context, index) {
-                      final folder = _imageFolders[index];
-                      return _FolderCard(
-                        title: folder['title']!,
-                        icon: folder['icon'] as IconData,
-                        color: folder['color'] as Color,
-                        folderPath: folder['path']!,
-                      );
-                    },
-                  ),
-                ],
-              ),
+                    Expanded(child: Container(height: 1, color: _gold.withValues(alpha: 0.28))),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Explora el archivo visual del museo con colecciones organizadas por época, institución y memoria histórica.',
+                  style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.65),
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _HeroChip(icon: Icons.collections_rounded, label: '$total colecciones'),
+                    const _HeroChip(icon: Icons.timeline_rounded, label: 'Archivo histórico'),
+                    const _HeroChip(icon: Icons.camera_alt_rounded, label: 'Fotografía'),
+                  ],
+                ),
+              ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _HeroChip({required this.icon, required this.label});
+
+  static const Color _gold      = Color(0xFFB8973A);
+  static const Color _goldLight = Color(0xFFD4AF5A);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: _gold.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _gold.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: _goldLight, size: 13),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(color: _goldLight, fontSize: 11, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -219,72 +228,84 @@ class ImagesScreen extends StatelessWidget {
 final List<Map<String, dynamic>> _imageFolders = [
   {
     'title': '1894 Iglesia',
+    'subtitle': 'Educación religiosa en Tacubaya',
     'path': '1894-iglesia-Educación',
     'icon': Icons.church,
     'color': Color(0xFF8B4513),
   },
   {
     'title': '1921 Instituto',
+    'subtitle': 'Instituto Comercial Prosperidad',
     'path': '1921-42-Instituto Comercial Prosperidad',
     'icon': Icons.school,
     'color': Color(0xFF1B5E75),
   },
   {
     'title': '1942 Escuela Agrícola',
+    'subtitle': 'Escuela Agrícola Industrial Mexicana',
     'path': '1942-51-Escuela Agricola Industrial Mexicana',
     'icon': Icons.agriculture,
     'color': Color(0xFF2D5016),
   },
   {
     'title': '1946 Hospital',
+    'subtitle': 'Servicios de salud universitarios',
     'path': '1946-Hospital',
     'icon': Icons.local_hospital,
     'color': Color(0xFFC32F27),
   },
   {
     'title': '1951 COVOPROM',
+    'subtitle': 'Colegio Vocacional y Profesional',
     'path': '1951-72-Covoprom',
     'icon': Icons.business,
     'color': Color(0xFF7B5EA7),
   },
   {
     'title': '1972 Universidad',
+    'subtitle': 'Primeros años universitarios',
     'path': '1972-Universidad',
     'icon': Icons.library_books,
     'color': Color(0xFF1A2B4A),
   },
   {
     'title': '1973 Universidad',
+    'subtitle': 'Decreto oficial de fundación UM',
     'path': '1973-Universidad',
     'icon': Icons.account_balance,
     'color': Color(0xFF2E7D9A),
   },
   {
     'title': '2014 UM Vídeo',
+    'subtitle': 'Registro audiovisual institucional',
     'path': '2014_UM_Video',
     'icon': Icons.videocam,
     'color': Color(0xFF5B6FA0),
   },
   {
     'title': '2018 Actividades',
+    'subtitle': 'Eventos y vida universitaria',
     'path': '2018-04-11',
     'icon': Icons.event,
     'color': Color(0xFF1B9E8A),
   },
   {
     'title': 'Directores Institución',
+    'subtitle': 'Galería de directores históricos',
     'path': 'Directores-Institución',
     'icon': Icons.person_pin,
     'color': Color(0xFFC9961A),
   },
   {
     'title': 'Directores',
+    'subtitle': 'Líderes que forjaron la universidad',
     'path': 'Directores',
     'icon': Icons.people,
     'color': Color(0xFF5A3A5A),
   },
   {
     'title': 'Logos Institución',
+    'subtitle': 'Evolución de la identidad visual',
     'path': 'Logos Institución',
     'icon': Icons.image_search,
     'color': Color(0xFF2C5282),
@@ -293,23 +314,36 @@ final List<Map<String, dynamic>> _imageFolders = [
 
 class _FolderCard extends StatelessWidget {
   final String title;
+  final String subtitle;
   final IconData icon;
   final Color color;
   final String folderPath;
+  final int index;
+
+  static const Color _navy = Color(0xFF0F1C35);
+  static const Color _gold = Color(0xFFB8973A);
 
   const _FolderCard({
     required this.title,
+    required this.subtitle,
     required this.icon,
     required this.color,
     required this.folderPath,
+    required this.index,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Extraer el año del título si empieza con dígitos
+    final yearMatch = RegExp(r'^\d{4}').firstMatch(title);
+    final year = yearMatch != null ? yearMatch.group(0)! : '';
+    final titleRest = year.isNotEmpty ? title.substring(4).trim() : title;
+
     return Material(
       color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         onTap: () {
           Navigator.push(
             context,
@@ -322,100 +356,132 @@ class _FolderCard extends StatelessWidget {
             ),
           );
         },
-        child: Ink(
+        child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _gold.withValues(alpha: 0.22)),
             boxShadow: [
               BoxShadow(
-                color: color.withValues(alpha: 0.18),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
+                color: _navy.withValues(alpha: 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  color.withValues(alpha: 0.98),
-                  color.withValues(alpha: 0.75),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.16),
-              ),
-            ),
-            child: Stack(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: IntrinsicHeight(child: Row(
               children: [
-                Positioned(
-                  top: -20,
-                  right: -10,
-                  child: Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.12),
+                // Bloque izquierdo con color + ícono
+                Container(
+                  width: 80,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [color, color.withValues(alpha: 0.75)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(14),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(
-                          icon,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          height: 1.15,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Text(
-                            'Abrir colección',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.82),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const Spacer(),
-                          Icon(
-                            Icons.arrow_forward_ios_rounded,
+                      const SizedBox(height: 16),
+                      Icon(icon, color: Colors.white, size: 26),
+                      if (year.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          year,
+                          style: TextStyle(
                             color: Colors.white.withValues(alpha: 0.9),
-                            size: 14,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
+                // Línea dorada separadora
+                Container(
+                  width: 2,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        _gold.withValues(alpha: 0.6),
+                        _gold.withValues(alpha: 0.2),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+                // Contenido derecho
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          year.isNotEmpty ? titleRest : title,
+                          style: const TextStyle(
+                            color: _navy,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Text(
+                              'Ver colección',
+                              style: TextStyle(
+                                color: color,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_ios_rounded, color: color, size: 11),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Número de índice decorativo
+                Padding(
+                  padding: const EdgeInsets.only(right: 14),
+                  child: Text(
+                    (index + 1).toString().padLeft(2, '0'),
+                    style: TextStyle(
+                      color: _navy.withValues(alpha: 0.08),
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
               ],
-            ),
+            )),
           ),
         ),
       ),
@@ -679,86 +745,79 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
         lower.endsWith('.webp');
   }
 
-  Widget _buildGalleryBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_loadError != null) {
-      return _GalleryMessageCard(
-        color: widget.color,
-        icon: Icons.cloud_off_rounded,
-        title: 'Error de carga',
-        message: _loadError!,
-        actionLabel: 'Reintentar',
-        onAction: _loadImages,
-      );
-    }
-
-    if (_images.isEmpty) {
-      return _GalleryMessageCard(
-        color: widget.color,
-        icon: Icons.photo_library_outlined,
-        title: 'Sin imágenes',
-        message:
-            'No se encontraron imágenes publicadas para esta carpeta. Verifica que exista acceso HTTP al directorio del servidor para ${widget.folderPath}.',
-      );
-    }
-
-    return GridView.builder(
-      itemCount: _images.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1,
-      ),
-      itemBuilder: (context, index) {
-        final item = _images[index];
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Material(
-            color: Colors.white,
-            child: InkWell(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => _GalleryPreviewScreen(
-                      item: item,
-                      title: widget.folderTitle,
-                      color: widget.color,
-                    ),
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [widget.color, widget.color.withValues(alpha: 0.72)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.18),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                );
-              },
-              child: Ink(
-                decoration: const BoxDecoration(color: Colors.white),
-                child: item.isAsset
-                    ? Image.asset(
-                        item.path,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _ImageErrorTile(
-                          color: widget.color,
-                        ),
-                      )
-                    : Image.network(
-                        item.path,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2.2),
-                          );
-                        },
-                        errorBuilder: (_, __, ___) => _ImageErrorTile(
-                          color: widget.color,
+                  child: const Icon(Icons.folder_rounded, color: Colors.white, size: 30),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.folderTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          height: 1.1,
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Colección visual histórica',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Carpeta: ${widget.folderPath}',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82),
+                fontSize: 12,
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
@@ -772,126 +831,92 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFF0F4F8), Color(0xFFE7EEF5)],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildHeader()),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          if (_isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_loadError != null)
+            SliverFillRemaining(
+              child: _GalleryMessageCard(
+                color: widget.color,
+                icon: Icons.cloud_off_rounded,
+                title: 'Error de carga',
+                message: _loadError!,
+                actionLabel: 'Reintentar',
+                onAction: _loadImages,
               ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          widget.color,
-                          widget.color.withValues(alpha: 0.72),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: widget.color.withValues(alpha: 0.18),
-                          blurRadius: 24,
-                          offset: const Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.14),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Icon(
-                                Icons.folder_rounded,
-                                color: Colors.white,
-                                size: 30,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.folderTitle,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      height: 1.1,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Colección visual histórica',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.78),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Carpeta: ${widget.folderPath}',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.82),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
+            )
+          else if (_images.isEmpty)
+            SliverFillRemaining(
+              child: _GalleryMessageCard(
+                color: widget.color,
+                icon: Icons.photo_library_outlined,
+                title: 'Sin imágenes',
+                message:
+                    'No se encontraron imágenes publicadas para esta carpeta. '
+                    'Verifica que exista acceso HTTP al directorio del servidor para ${widget.folderPath}.',
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = _images[index];
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Material(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: widget.color.withValues(alpha: 0.12),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => _GalleryPreviewScreen(
+                                  item: item,
+                                  title: widget.folderTitle,
+                                  color: widget.color,
+                                ),
+                              ),
+                            );
+                          },
+                          child: item.isAsset
+                              ? Image.asset(
+                                  item.path,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _ImageErrorTile(color: widget.color),
+                                )
+                              : Image.network(
+                                  item.path,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) =>
+                                      _ImageErrorTile(color: widget.color),
+                                ),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 22,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
                       ),
-                      child: _buildGalleryBody(),
-                    ),
-                  ),
-                ],
+                    );
+                  },
+                  childCount: _images.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -1024,36 +1049,3 @@ class _GalleryPreviewScreen extends StatelessWidget {
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _InfoChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 16),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
