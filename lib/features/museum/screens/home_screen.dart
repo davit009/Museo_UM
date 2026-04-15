@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:museo_app/features/museum/screens/intro_historia_screen.dart';
 import 'package:museo_app/features/museum/screens/etapas_screen.dart';
 import 'package:museo_app/features/museum/screens/jubilados_screen.dart';
+import 'package:museo_app/features/museum/screens/images_screen.dart';
 import 'package:museo_app/features/museum/screens/musica_screen.dart';
 import 'package:museo_app/features/museum/screens/datos_curiosos_screen.dart';
 import 'package:museo_app/features/museum/screens/informacion_screen.dart';
@@ -59,6 +60,14 @@ final _sections = [
     color: const Color(0xFF5B6FA0),
     colorSecundario: const Color(0xFF3A4D7A),
     screen: const JubiladosScreen(),
+  ),
+  _Section(
+    titulo: 'Galerías',
+    subtitulo: 'Explora nuestro acervo fotográfico e histórico',
+    icon: Icons.photo_library,
+    color: const Color(0xFF2E7D9A),
+    colorSecundario: const Color(0xFF1A5E75),
+    screen: const ImagesScreen(),
   ),
   _Section(
     titulo: 'Música',
