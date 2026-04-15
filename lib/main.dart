@@ -8,6 +8,8 @@ import 'package:museo_app/features/museum/screens/splash_screen.dart';
 import 'package:museo_app/features/museum/screens/home_screen.dart';
 import 'firebase_options.dart'; // Generado por FlutterFire CLI
 
+final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -35,6 +37,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      scaffoldMessengerKey: scaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       title: 'Museo App',
       theme: ThemeData(useMaterial3: true, primarySwatch: Colors.deepPurple),

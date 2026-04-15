@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:museo_app/main.dart' as import_main;
 
 class PushNotificationService {
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
@@ -37,7 +39,24 @@ class PushNotificationService {
       // 4. Cuando la app está en PRIMER PLANO
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         print('Mensaje recibido en primer plano: ${message.notification?.title}');
-        // Aquí puedes agregar lógica para mostrar un banner o refrescar un chat localmente
+        
+        if (message.notification != null) {
+          import_main.scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(
+              content: Text('${message.notification!.title}: ${message.notification!.body}'),
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.deepPurple,
+              action: SnackBarAction(
+                label: 'Cerrar',
+                textColor: Colors.white,
+                onPressed: () {
+                  import_main.scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+                },
+              ),
+            ),
+          );
+        }
       });
 
       // 5. Cuando el usuario TOCA la notificación y la app estaba en segundo plano
