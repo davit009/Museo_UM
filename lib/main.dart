@@ -4,8 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:museo_app/core/constants.dart';
 import 'package:museo_app/core/services/push_notification_service.dart';
 import 'package:museo_app/features/auth/screens/login_screen.dart';
-import 'package:museo_app/features/museum/screens/splash_screen.dart';
 import 'package:museo_app/features/museum/screens/home_screen.dart';
+import 'package:museo_app/features/museum/screens/splash_screen.dart';
 import 'firebase_options.dart'; // Generado por FlutterFire CLI
 
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
       title: 'Museo App',
       theme: ThemeData(useMaterial3: true, primarySwatch: Colors.deepPurple),
       
-      // 1. Que la app arranque con el Splash que hizo tu compañero
+      // Arrancamos con una intro animada premium
       home: const SplashScreen(), 
       
       // 2. Definimos rutas para que sea fácil saltar entre pantallas

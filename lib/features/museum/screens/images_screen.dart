@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:museo_app/features/admin/services/admin_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const List<String> _galleryBaseUrls = [
@@ -13,299 +16,740 @@ const List<String> _galleryBaseUrls = [
   'http://64.23.168.72/Galerias',
 ];
 
-class ImagesScreen extends StatelessWidget {
+const List<String> _galleryApiBaseUrls = [
+  'http://64.23.168.72/api/gallery',
+  'https://64.23.168.72/api/gallery',
+];
+
+Map<String, String> _serverAuthHeaders() {
+  final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+  if (accessToken == null || accessToken.isEmpty) return {};
+  return {'Authorization': 'Bearer $accessToken'};
+}
+
+class ImagesScreen extends StatefulWidget {
   const ImagesScreen({super.key});
 
-  static const Color _navy  = Color(0xFF0F1C35);
-  static const Color _cream = Color(0xFFF5F0E8);
+  @override
+  State<ImagesScreen> createState() => _ImagesScreenState();
+}
+
+class _ImagesScreenState extends State<ImagesScreen> {
+  final AdminService _adminService = AdminService();
+  final List<Map<String, dynamic>> _collections = List<Map<String, dynamic>>.from(
+    _defaultImageFolders,
+  );
+
+  bool _isAdmin = false;
+  bool _isBusy = false;
+
+  static const Color _primaryColor = Color(0xFF2E7D9A);
+  static const Color _darkColor = Color(0xFF1A2B4A);
+  static const List<Color> _dynamicFolderColors = [
+    Color(0xFF8B4513),
+    Color(0xFF1B5E75),
+    Color(0xFF2D5016),
+    Color(0xFFC32F27),
+    Color(0xFF7B5EA7),
+    Color(0xFF1A2B4A),
+    Color(0xFF2E7D9A),
+    Color(0xFF5B6FA0),
+    Color(0xFF1B9E8A),
+    Color(0xFFC9961A),
+    Color(0xFF5A3A5A),
+    Color(0xFF2C5282),
+  ];
+
+  Color _colorForFolder(String folderPath) {
+    final key = folderPath.trim().toLowerCase();
+    if (key.isEmpty) return const Color(0xFF44617B);
+
+    final index = key.hashCode.abs() % _dynamicFolderColors.length;
+    return _dynamicFolderColors[index];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminStatus();
+    _loadServerCollections();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _adminService.isCurrentUserAdmin();
+    if (!mounted) return;
+    setState(() {
+      _isAdmin = isAdmin;
+    });
+  }
+
+  Future<void> _loadServerCollections() async {
+    final seen = <String>{
+      for (final item in _collections) item['path'] as String,
+    };
+    final discovered = <Map<String, dynamic>>[];
+
+    final fromApi = await _loadServerCollectionsFromApi();
+    for (final folder in fromApi) {
+      final folderPath = (folder['path'] ?? '').toString();
+      if (folderPath.isEmpty || seen.contains(folderPath)) continue;
+      seen.add(folderPath);
+      discovered.add(folder);
+    }
+
+    for (final baseUrl in _galleryBaseUrls) {
+      try {
+        final html = await NetworkAssetBundle(Uri.parse('$baseUrl/')).loadString('');
+        if (!html.contains('Index of')) continue;
+
+        final hrefRegex = RegExp(r'href="([^"]+)"', caseSensitive: false);
+        for (final match in hrefRegex.allMatches(html)) {
+          final href = match.group(1);
+          if (href == null || href.isEmpty || href == '../' || href.startsWith('?')) {
+            continue;
+          }
+          if (!href.endsWith('/')) continue;
+
+          final folder = Uri.decodeComponent(href.substring(0, href.length - 1));
+          if (folder.trim().isEmpty || seen.contains(folder)) continue;
+
+          seen.add(folder);
+          discovered.add(
+            {
+              'title': folder,
+              'path': folder,
+              'icon': Icons.folder,
+              'color': _colorForFolder(folder),
+            },
+          );
+        }
+      } catch (_) {
+        // Sigue con la siguiente base.
+      }
+    }
+
+    if (!mounted || discovered.isEmpty) return;
+    setState(() {
+      _collections.addAll(discovered);
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> _loadServerCollectionsFromApi() async {
+    final headers = {
+      ..._serverAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+
+    for (final apiBase in _galleryApiBaseUrls) {
+      final cleanBase = apiBase.endsWith('/')
+          ? apiBase.substring(0, apiBase.length - 1)
+          : apiBase;
+      final uri = Uri.parse('$cleanBase/folders/list');
+
+      try {
+        var response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode({'path': ''}),
+        );
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          final getUri = Uri.parse('$cleanBase/folders/list?path=');
+          response = await http.get(getUri, headers: _serverAuthHeaders());
+        }
+
+        if (response.statusCode < 200 || response.statusCode >= 300) continue;
+
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) continue;
+        final foldersRaw = decoded['folders'];
+        if (foldersRaw is! List) continue;
+
+        final folders = foldersRaw
+            .whereType<String>()
+            .where((folder) => folder.trim().isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
+        if (folders.isEmpty) continue;
+
+        return folders
+            .map(
+              (folder) => {
+                'title': folder,
+                'path': folder,
+                'icon': Icons.folder,
+                'color': _colorForFolder(folder),
+              },
+            )
+            .toList();
+      } catch (_) {
+        // Intentar con siguiente API base.
+      }
+    }
+
+    return const [];
+  }
+
+  Future<String?> _promptText({
+    required String title,
+    required String hint,
+    String? initialValue,
+    String confirmLabel = 'Guardar',
+  }) async {
+    final controller = TextEditingController(text: initialValue ?? '');
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return value?.trim();
+  }
+
+  String _safeObjectName(String value) {
+    return value
+        .trim()
+        .replaceAll(RegExp(r'\\+'), '-')
+        .replaceAll(RegExp(r'/+'), '-')
+        .replaceAll(RegExp(r'\s+'), '_');
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+      ),
+    );
+  }
+
+  Future<bool> _tryWebDavMethod({
+    required String method,
+    required String fromPath,
+    String? destinationPath,
+  }) async {
+    final headers = _serverAuthHeaders();
+
+    for (final base in _galleryBaseUrls) {
+      final cleanBase = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+      final encodedFrom = fromPath
+          .split('/')
+          .where((part) => part.trim().isNotEmpty)
+          .map(Uri.encodeComponent)
+          .join('/');
+      final fromUri = Uri.parse('$cleanBase/$encodedFrom');
+      final request = http.Request(method, fromUri);
+      request.headers.addAll(headers);
+
+      if (method == 'MOVE' && destinationPath != null) {
+        final encodedTo = destinationPath
+            .split('/')
+            .where((part) => part.trim().isNotEmpty)
+            .map(Uri.encodeComponent)
+            .join('/');
+        final destinationUri = Uri.parse('$cleanBase/$encodedTo');
+        request.headers['Destination'] = destinationUri.toString();
+        request.headers['Overwrite'] = 'T';
+      }
+
+      try {
+        final streamed = await request.send();
+        if (streamed.statusCode >= 200 && streamed.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Prueba siguiente base.
+      }
+    }
+
+    return false;
+  }
+
+  Future<bool> _tryApiJsonAction({
+    required String endpoint,
+    required Map<String, dynamic> payload,
+  }) async {
+    final headers = {
+      ..._serverAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+
+    for (final baseUrl in _galleryApiBaseUrls) {
+      final cleanBase = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final uri = Uri.parse('$cleanBase/$endpoint');
+      try {
+        final response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(payload),
+        );
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Prueba el siguiente endpoint base.
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _createCollection() async {
+    if (!_isAdmin || _isBusy) return;
+
+    final name = await _promptText(
+      title: 'Crear carpeta',
+      hint: 'Nombre de la carpeta',
+      confirmLabel: 'Crear',
+    );
+    if (name == null || name.isEmpty) return;
+
+    final path = _safeObjectName(name);
+    if (path.isEmpty) return;
+
+    setState(() => _isBusy = true);
+    final ok =
+      await _tryApiJsonAction(endpoint: 'folders/create', payload: {'path': path}) ||
+      await _tryWebDavMethod(method: 'MKCOL', fromPath: '$path/');
+    if (!mounted) return;
+
+    setState(() {
+      _isBusy = false;
+      if (ok) {
+        _collections.add(
+          {
+            'title': name,
+            'path': path,
+            'icon': Icons.folder,
+            'color': _colorForFolder(path),
+          },
+        );
+      }
+    });
+
+    _showMessage(
+      ok
+          ? 'Carpeta creada correctamente.'
+          : 'No se pudo crear la carpeta en el servidor.',
+      isError: !ok,
+    );
+  }
+
+  Future<void> _renameCollection(Map<String, dynamic> folder) async {
+    if (!_isAdmin || _isBusy) return;
+
+    final currentPath = folder['path'] as String;
+    final requested = await _promptText(
+      title: 'Renombrar carpeta',
+      hint: 'Nuevo nombre',
+      initialValue: currentPath,
+      confirmLabel: 'Renombrar',
+    );
+    if (requested == null || requested.isEmpty) return;
+
+    final newPath = _safeObjectName(requested);
+    if (newPath.isEmpty || newPath == currentPath) return;
+
+    setState(() => _isBusy = true);
+    final ok =
+        await _tryApiJsonAction(
+          endpoint: 'folders/rename',
+          payload: {'from': currentPath, 'to': newPath},
+        ) ||
+        await _tryWebDavMethod(
+          method: 'MOVE',
+          fromPath: currentPath,
+          destinationPath: '$newPath/',
+        );
+    if (!mounted) return;
+
+    setState(() {
+      _isBusy = false;
+      if (ok) {
+        folder['title'] = requested;
+        folder['path'] = newPath;
+      }
+    });
+
+    _showMessage(
+      ok
+          ? 'Carpeta renombrada correctamente.'
+          : 'No se pudo renombrar la carpeta en el servidor.',
+      isError: !ok,
+    );
+  }
+
+  Future<void> _deleteCollection(Map<String, dynamic> folder) async {
+    if (!_isAdmin || _isBusy) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar carpeta'),
+        content: const Text('Esta acción eliminará la carpeta del servidor. ¿Continuar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final path = folder['path'] as String;
+    setState(() => _isBusy = true);
+    final ok =
+      await _tryApiJsonAction(endpoint: 'folders/delete', payload: {'path': path}) ||
+      await _tryWebDavMethod(method: 'DELETE', fromPath: '$path/');
+    if (!mounted) return;
+
+    setState(() {
+      _isBusy = false;
+      if (ok) {
+        _collections.remove(folder);
+      }
+    });
+
+    _showMessage(
+      ok
+          ? 'Carpeta eliminada correctamente.'
+          : 'No se pudo eliminar la carpeta en el servidor.',
+      isError: !ok,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _cream,
+      backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        backgroundColor: _navy,
-        title: const Text(
-          'GALERÍAS',
-          style: TextStyle(letterSpacing: 2.5, fontSize: 15, fontWeight: FontWeight.w700),
-        ),
+        backgroundColor: _primaryColor,
+        title: const Text('Galería Multimedia'),
         foregroundColor: Colors.white,
         elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(2),
-          child: Container(
-            height: 2,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF6B5000), Color(0xFFD4AF5A), Color(0xFF6B5000)],
-              ),
-            ),
-          ),
-        ),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _GalleryHero(total: _imageFolders.length)),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final folder = _imageFolders[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _FolderCard(
-                      title: folder['title'] as String,
-                      subtitle: folder['subtitle'] as String,
-                      icon: folder['icon'] as IconData,
-                      color: folder['color'] as Color,
-                      folderPath: folder['path'] as String,
-                      index: index,
-                    ),
-                  );
-                },
-                childCount: _imageFolders.length,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Hero banner ──────────────────────────────────────────────────────────────
-class _GalleryHero extends StatelessWidget {
-  final int total;
-  const _GalleryHero({required this.total});
-
-  static const Color _gold      = Color(0xFFB8973A);
-  static const Color _goldLight = Color(0xFFD4AF5A);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF0F1C35), Color(0xFF1B3A5C), Color(0xFF0F1C35)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -50, right: -50,
-            child: Container(
-              width: 180, height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _gold.withValues(alpha: 0.06),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -30, left: -30,
-            child: Container(
-              width: 120, height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.03),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 54, height: 54,
-                      decoration: BoxDecoration(
-                        color: _gold.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: _gold.withValues(alpha: 0.45), width: 1.5),
-                      ),
-                      child: const Icon(Icons.photo_library_rounded, color: _goldLight, size: 28),
-                    ),
-                    const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'ARCHIVO VISUAL',
-                          style: TextStyle(
-                            color: _goldLight,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Galerías Históricas',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+        actions: [
+          if (_isAdmin)
+            PopupMenuButton<String>(
+              enabled: !_isBusy,
+              icon: const Icon(Icons.admin_panel_settings_rounded),
+              tooltip: 'CRUD de carpetas',
+              onSelected: (value) {
+                if (value == 'create') {
+                  _createCollection();
+                } else if (value == 'refresh') {
+                  _loadServerCollections();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem<String>(
+                  value: 'create',
+                  child: ListTile(
+                    leading: Icon(Icons.create_new_folder_rounded),
+                    title: Text('Crear carpeta'),
+                  ),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Container(width: 32, height: 1.5, color: _gold),
-                    Container(
-                      width: 5, height: 5,
-                      margin: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: _gold),
-                    ),
-                    Expanded(child: Container(height: 1, color: _gold.withValues(alpha: 0.28))),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Explora el archivo visual del museo con colecciones organizadas por época, institución y memoria histórica.',
-                  style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.65),
-                ),
-                const SizedBox(height: 18),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _HeroChip(icon: Icons.collections_rounded, label: '$total colecciones'),
-                    const _HeroChip(icon: Icons.timeline_rounded, label: 'Archivo histórico'),
-                    const _HeroChip(icon: Icons.camera_alt_rounded, label: 'Fotografía'),
-                  ],
+                PopupMenuItem<String>(
+                  value: 'refresh',
+                  child: ListTile(
+                    leading: Icon(Icons.refresh_rounded),
+                    title: Text('Recargar carpetas'),
+                  ),
                 ),
               ],
             ),
-          ),
         ],
       ),
-    );
-  }
-}
-
-class _HeroChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _HeroChip({required this.icon, required this.label});
-
-  static const Color _gold      = Color(0xFFB8973A);
-  static const Color _goldLight = Color(0xFFD4AF5A);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      decoration: BoxDecoration(
-        color: _gold.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _gold.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      body: Stack(
         children: [
-          Icon(icon, color: _goldLight, size: 13),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(color: _goldLight, fontSize: 11, fontWeight: FontWeight.w600),
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFF0F4F8), Color(0xFFE7EEF5)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
           ),
+          Positioned(
+            top: -70,
+            right: -50,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _primaryColor.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            left: -60,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _darkColor.withValues(alpha: 0.06),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_primaryColor, _darkColor],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _darkColor.withValues(alpha: 0.18),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.18),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.photo_library_rounded,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            const Expanded(
+                              child: Text(
+                                'Galerías Históricas',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.1,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Explora el archivo visual del museo con colecciones organizadas por época, institución y memoria histórica.',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            height: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            _InfoChip(
+                              icon: Icons.collections_rounded,
+                              label: '${_collections.length} colecciones',
+                            ),
+                            const _InfoChip(
+                              icon: Icons.auto_awesome,
+                              label: 'Diseño editorial',
+                            ),
+                            const _InfoChip(
+                              icon: Icons.timeline_rounded,
+                              label: 'Archivo histórico',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: _primaryColor,
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Colecciones',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: _darkColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Selecciona una carpeta para explorar su contenido.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.blueGrey[700],
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.05,
+                    ),
+                    itemCount: _collections.length,
+                    itemBuilder: (context, index) {
+                      final folder = _collections[index];
+                      return _FolderCard(
+                        title: folder['title']!,
+                        icon: folder['icon'] as IconData,
+                        color: folder['color'] as Color,
+                        folderPath: folder['path']!,
+                        isAdmin: _isAdmin,
+                        isBusy: _isBusy,
+                        onRename: () => _renameCollection(folder),
+                        onDelete: () => _deleteCollection(folder),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_isBusy)
+            Container(
+              color: Colors.black.withValues(alpha: 0.18),
+              child: const Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
     );
   }
 }
 
-final List<Map<String, dynamic>> _imageFolders = [
+final List<Map<String, dynamic>> _defaultImageFolders = [
   {
     'title': '1894 Iglesia',
-    'subtitle': 'Educación religiosa en Tacubaya',
     'path': '1894-iglesia-Educación',
     'icon': Icons.church,
     'color': Color(0xFF8B4513),
   },
   {
     'title': '1921 Instituto',
-    'subtitle': 'Instituto Comercial Prosperidad',
     'path': '1921-42-Instituto Comercial Prosperidad',
     'icon': Icons.school,
     'color': Color(0xFF1B5E75),
   },
   {
     'title': '1942 Escuela Agrícola',
-    'subtitle': 'Escuela Agrícola Industrial Mexicana',
     'path': '1942-51-Escuela Agricola Industrial Mexicana',
     'icon': Icons.agriculture,
     'color': Color(0xFF2D5016),
   },
   {
     'title': '1946 Hospital',
-    'subtitle': 'Servicios de salud universitarios',
     'path': '1946-Hospital',
     'icon': Icons.local_hospital,
     'color': Color(0xFFC32F27),
   },
   {
     'title': '1951 COVOPROM',
-    'subtitle': 'Colegio Vocacional y Profesional',
     'path': '1951-72-Covoprom',
     'icon': Icons.business,
     'color': Color(0xFF7B5EA7),
   },
   {
     'title': '1972 Universidad',
-    'subtitle': 'Primeros años universitarios',
     'path': '1972-Universidad',
     'icon': Icons.library_books,
     'color': Color(0xFF1A2B4A),
   },
   {
     'title': '1973 Universidad',
-    'subtitle': 'Decreto oficial de fundación UM',
     'path': '1973-Universidad',
     'icon': Icons.account_balance,
     'color': Color(0xFF2E7D9A),
   },
   {
     'title': '2014 UM Vídeo',
-    'subtitle': 'Registro audiovisual institucional',
     'path': '2014_UM_Video',
     'icon': Icons.videocam,
     'color': Color(0xFF5B6FA0),
   },
   {
     'title': '2018 Actividades',
-    'subtitle': 'Eventos y vida universitaria',
     'path': '2018-04-11',
     'icon': Icons.event,
     'color': Color(0xFF1B9E8A),
   },
   {
     'title': 'Directores Institución',
-    'subtitle': 'Galería de directores históricos',
     'path': 'Directores-Institución',
     'icon': Icons.person_pin,
     'color': Color(0xFFC9961A),
   },
   {
     'title': 'Directores',
-    'subtitle': 'Líderes que forjaron la universidad',
     'path': 'Directores',
     'icon': Icons.people,
     'color': Color(0xFF5A3A5A),
   },
   {
     'title': 'Logos Institución',
-    'subtitle': 'Evolución de la identidad visual',
     'path': 'Logos Institución',
     'icon': Icons.image_search,
     'color': Color(0xFF2C5282),
@@ -314,36 +758,31 @@ final List<Map<String, dynamic>> _imageFolders = [
 
 class _FolderCard extends StatelessWidget {
   final String title;
-  final String subtitle;
   final IconData icon;
   final Color color;
   final String folderPath;
-  final int index;
-
-  static const Color _navy = Color(0xFF0F1C35);
-  static const Color _gold = Color(0xFFB8973A);
+  final bool isAdmin;
+  final bool isBusy;
+  final VoidCallback? onRename;
+  final VoidCallback? onDelete;
 
   const _FolderCard({
     required this.title,
-    required this.subtitle,
     required this.icon,
     required this.color,
     required this.folderPath,
-    required this.index,
+    this.isAdmin = false,
+    this.isBusy = false,
+    this.onRename,
+    this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Extraer el año del título si empieza con dígitos
-    final yearMatch = RegExp(r'^\d{4}').firstMatch(title);
-    final year = yearMatch != null ? yearMatch.group(0)! : '';
-    final titleRest = year.isNotEmpty ? title.substring(4).trim() : title;
-
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: () {
           Navigator.push(
             context,
@@ -356,132 +795,138 @@ class _FolderCard extends StatelessWidget {
             ),
           );
         },
-        child: Container(
+        child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _gold.withValues(alpha: 0.22)),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: _navy.withValues(alpha: 0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 5),
+                color: color.withValues(alpha: 0.18),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: IntrinsicHeight(child: Row(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  color.withValues(alpha: 0.98),
+                  color.withValues(alpha: 0.75),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.16),
+              ),
+            ),
+            child: Stack(
               children: [
-                // Bloque izquierdo con color + ícono
-                Container(
-                  width: 80,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [color, color.withValues(alpha: 0.75)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+                Positioned(
+                  top: -20,
+                  right: -10,
+                  child: Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.12),
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 16),
-                      Icon(icon, color: Colors.white, size: 26),
-                      if (year.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          year,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
+                ),
+                if (isAdmin)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: PopupMenuButton<String>(
+                        enabled: !isBusy,
+                        icon: const Icon(Icons.more_vert, color: Colors.white),
+                        onSelected: (value) {
+                          if (value == 'rename') {
+                            onRename?.call();
+                          } else if (value == 'delete') {
+                            onDelete?.call();
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem<String>(
+                            value: 'rename',
+                            child: ListTile(
+                              leading: Icon(Icons.drive_file_rename_outline_rounded),
+                              title: Text('Renombrar carpeta'),
+                            ),
                           ),
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: ListTile(
+                              leading: Icon(Icons.delete_rounded, color: Colors.red),
+                              title: Text('Eliminar carpeta'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                      ],
-                      const SizedBox(height: 16),
+                        child: Icon(
+                          icon,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          height: 1.15,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(
+                            'Abrir colección',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.82),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            size: 14,
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
-                // Línea dorada separadora
-                Container(
-                  width: 2,
-                  height: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        _gold.withValues(alpha: 0.6),
-                        _gold.withValues(alpha: 0.2),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-                // Contenido derecho
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          year.isNotEmpty ? titleRest : title,
-                          style: const TextStyle(
-                            color: _navy,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            height: 1.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Text(
-                              'Ver colección',
-                              style: TextStyle(
-                                color: color,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_ios_rounded, color: color, size: 11),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Número de índice decorativo
-                Padding(
-                  padding: const EdgeInsets.only(right: 14),
-                  child: Text(
-                    (index + 1).toString().padLeft(2, '0'),
-                    style: TextStyle(
-                      color: _navy.withValues(alpha: 0.08),
-                      fontSize: 36,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
               ],
-            )),
+            ),
           ),
         ),
       ),
@@ -514,24 +959,53 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     'muro_images',
   ];
 
+  final AdminService _adminService = AdminService();
+  final ImagePicker _imagePicker = ImagePicker();
   final List<_GalleryImageItem> _images = [];
   bool _isLoading = true;
+  bool _isAdmin = false;
+  bool _isProcessing = false;
   String? _loadError;
+  int _imageVersion = 0;
 
   @override
   void initState() {
     super.initState();
+    _checkAdminStatus();
     _loadImages();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _adminService.isCurrentUserAdmin();
+    if (!mounted) return;
+    final shouldReload = !_isAdmin && isAdmin;
+    setState(() {
+      _isAdmin = isAdmin;
+    });
+    if (shouldReload) {
+      await _loadImages();
+    }
   }
 
   Future<void> _loadImages() async {
     setState(() {
       _isLoading = true;
       _loadError = null;
+      _imageVersion = DateTime.now().millisecondsSinceEpoch;
       _images.clear();
     });
 
     try {
+      final fromApi = await _loadImagesFromApi();
+      if (fromApi.isNotEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _images.addAll(fromApi);
+          _isLoading = false;
+        });
+        return;
+      }
+
       final fromHttpGallery = await _loadImagesFromHttpGallery();
       if (fromHttpGallery.isNotEmpty) {
         if (!mounted) return;
@@ -556,7 +1030,7 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
       if (!mounted) return;
 
       setState(() {
-        _images.addAll(fromSupabase);
+        if (fromSupabase != null) _images.addAll(fromSupabase.images);
         _isLoading = false;
       });
     } catch (_) {
@@ -569,6 +1043,68 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     }
   }
 
+  Future<List<_GalleryImageItem>> _loadImagesFromApi() async {
+    final headers = {
+      ..._serverAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+
+    for (final apiBase in _galleryApiBaseUrls) {
+      final cleanBase = apiBase.endsWith('/')
+          ? apiBase.substring(0, apiBase.length - 1)
+          : apiBase;
+      final uri = Uri.parse('$cleanBase/files/list');
+
+      try {
+        var response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode({'path': widget.folderPath}),
+        );
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          final encodedPath = Uri.encodeQueryComponent(widget.folderPath);
+          final getUri = Uri.parse('$cleanBase/files/list?path=$encodedPath');
+          response = await http.get(getUri, headers: _serverAuthHeaders());
+        }
+
+        if (response.statusCode < 200 || response.statusCode >= 300) continue;
+
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) continue;
+        final filesRaw = decoded['files'];
+        if (filesRaw is! List) continue;
+
+        final files = filesRaw
+            .whereType<String>()
+            .where(_isImagePath)
+            .toList()
+          ..sort();
+
+        if (files.isEmpty) continue;
+
+        return files
+            .map((fileName) {
+              final objectPath = '${widget.folderPath}/$fileName';
+              final candidates = _apiImageUrlCandidates(
+                objectPath,
+                cacheVersion: _imageVersion,
+              );
+              return _GalleryImageItem(
+                path: candidates.first,
+                isAsset: false,
+                objectPath: objectPath,
+              );
+            })
+            .toList();
+      } catch (_) {
+        // Sigue con siguiente API base.
+      }
+    }
+
+    return const [];
+  }
+
   Future<List<_GalleryImageItem>> _loadImagesFromHttpGallery() async {
     final aliases = _folderAliases(widget.folderPath);
 
@@ -577,7 +1113,17 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
         final imageUrls = await _tryReadApacheIndex(baseUrl, alias);
         if (imageUrls.isNotEmpty) {
           return imageUrls
-              .map((url) => _GalleryImageItem(path: url, isAsset: false))
+              .map((url) {
+                final uri = Uri.parse(url);
+                final fileName = uri.pathSegments.isNotEmpty
+                    ? Uri.decodeComponent(uri.pathSegments.last)
+                    : 'imagen.jpg';
+                return _GalleryImageItem(
+                  path: url,
+                  isAsset: false,
+                  objectPath: '$alias/$fileName',
+                );
+              })
               .toList();
         }
       }
@@ -663,13 +1209,34 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
       for (final match in hrefRegex.allMatches(html)) {
         final href = match.group(1);
         if (href == null || href.isEmpty) continue;
-        if (href.startsWith('?') || href.startsWith('/') || href == '../') {
+        if (href.startsWith('?') || href == '../') {
+          continue;
+        }
+
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          final uri = Uri.tryParse(href);
+          if (uri == null || uri.pathSegments.isEmpty) continue;
+          final fileName = Uri.decodeComponent(uri.pathSegments.last);
+          if (_isImagePath(fileName)) {
+            imageNames.add(fileName);
+          }
+          continue;
+        }
+
+        if (href.startsWith('/')) {
+          final uri = Uri.tryParse(href);
+          if (uri == null || uri.pathSegments.isEmpty) continue;
+          final fileName = Uri.decodeComponent(uri.pathSegments.last);
+          if (_isImagePath(fileName)) {
+            imageNames.add(fileName);
+          }
           continue;
         }
 
         final decodedName = Uri.decodeComponent(href);
-        if (!_isImagePath(decodedName)) continue;
-        imageNames.add(decodedName);
+        if (_isImagePath(decodedName)) {
+          imageNames.add(decodedName);
+        }
       }
 
       if (imageNames.isEmpty) return const [];
@@ -704,7 +1271,7 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     }
   }
 
-  Future<List<_GalleryImageItem>> _loadImagesFromSupabase() async {
+  Future<_SupabaseGalleryLoad?> _loadImagesFromSupabase() async {
     final client = Supabase.instance.client;
 
     for (final bucket in _bucketCandidates) {
@@ -719,22 +1286,351 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
 
         if (files.isEmpty) continue;
 
-        return files
+        final images = files
             .map(
-              (file) => _GalleryImageItem(
-                path: client.storage
-                    .from(bucket)
-                    .getPublicUrl('${widget.folderPath}/${file.name}'),
-                isAsset: false,
-              ),
+              (file) {
+                final objectPath = '${widget.folderPath}/${file.name}';
+                return _GalleryImageItem(
+                  path: client.storage.from(bucket).getPublicUrl(objectPath),
+                  isAsset: false,
+                  bucket: bucket,
+                  objectPath: objectPath,
+                );
+              },
             )
             .toList();
+
+        return _SupabaseGalleryLoad(bucket: bucket, images: images);
       } catch (_) {
         // Si el bucket no existe o no tiene permisos de list, sigue con el siguiente.
       }
     }
 
-    return const [];
+    return null;
+  }
+
+  List<String> _publicUrlCandidates(String objectPath, {int? cacheVersion}) {
+    final encodedPath = objectPath
+        .split('/')
+        .where((part) => part.trim().isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
+
+    final prioritizedBaseUrls = [..._galleryBaseUrls]
+      ..sort((a, b) {
+        final aScore = a.toLowerCase().contains('galeria') ? 0 : 1;
+        final bScore = b.toLowerCase().contains('galeria') ? 0 : 1;
+        return aScore.compareTo(bScore);
+      });
+
+    return prioritizedBaseUrls.map((baseUrl) {
+      final cleanBase = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final versionQuery = cacheVersion == null ? '' : '?v=$cacheVersion';
+      return '$cleanBase/$encodedPath$versionQuery';
+    }).toList();
+  }
+
+  List<String> _apiImageUrlCandidates(String objectPath, {int? cacheVersion}) {
+    final encodedObjectPath = objectPath
+        .split('/')
+        .where((part) => part.trim().isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
+
+    final apiUrls = _galleryApiBaseUrls.map((apiBase) {
+      final cleanBase = apiBase.endsWith('/')
+          ? apiBase.substring(0, apiBase.length - 1)
+          : apiBase;
+      final versionQuery = cacheVersion == null ? '' : '&v=$cacheVersion';
+      return '$cleanBase/files/raw?path=$encodedObjectPath$versionQuery';
+    }).toList();
+
+    return [
+      ...apiUrls,
+      ..._publicUrlCandidates(objectPath, cacheVersion: cacheVersion),
+    ];
+  }
+
+  Uri _buildEncodedServerUri(String baseUrl, String objectPath) {
+    final cleanBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    final parts = objectPath
+        .split('/')
+        .where((part) => part.trim().isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
+    return Uri.parse('$cleanBase/$parts');
+  }
+
+  Future<bool> _writeToServer({
+    required String method,
+    required String objectPath,
+    Uint8List? bytes,
+    String? contentType,
+    String? destinationPath,
+  }) async {
+    final headersBase = _serverAuthHeaders();
+
+    for (final baseUrl in _galleryBaseUrls) {
+      final uri = _buildEncodedServerUri(baseUrl, objectPath);
+      final request = http.Request(method, uri);
+      request.headers.addAll(headersBase);
+      if (contentType != null) {
+        request.headers['Content-Type'] = contentType;
+      }
+      if (destinationPath != null && method == 'MOVE') {
+        final destinationUri = _buildEncodedServerUri(baseUrl, destinationPath);
+        request.headers['Destination'] = destinationUri.toString();
+        request.headers['Overwrite'] = 'T';
+      }
+      if (bytes != null) {
+        request.bodyBytes = bytes;
+      }
+
+      try {
+        final response = await request.send();
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Probar siguiente base.
+      }
+    }
+
+    return false;
+  }
+
+  Future<bool> _tryApiJsonAction({
+    required String endpoint,
+    required Map<String, dynamic> payload,
+  }) async {
+    final headers = {
+      ..._serverAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+
+    for (final baseUrl in _galleryApiBaseUrls) {
+      final cleanBase = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final uri = Uri.parse('$cleanBase/$endpoint');
+      try {
+        final response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(payload),
+        );
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Intenta con el siguiente endpoint.
+      }
+    }
+
+    return false;
+  }
+
+  Future<bool> _tryApiUploadAction({
+    required String objectPath,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final headers = _serverAuthHeaders();
+
+    for (final baseUrl in _galleryApiBaseUrls) {
+      final cleanBase = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final uri = Uri.parse('$cleanBase/files/upload');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+      request.fields['path'] = objectPath;
+      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+
+      try {
+        final response = await request.send();
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Intenta con el siguiente endpoint.
+      }
+    }
+
+    return false;
+  }
+
+  Future<XFile?> _pickImageFromGallery() async {
+    try {
+      return await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 92);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _fileExtension(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    if (dot < 0 || dot == fileName.length - 1) return 'jpg';
+    return fileName.substring(dot + 1).toLowerCase();
+  }
+
+  String _mimeTypeForExtension(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'jpeg':
+      case 'jpg':
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  String _basename(String path) {
+    final parts = path.split('/');
+    return parts.isEmpty ? path : parts.last;
+  }
+
+  void _showGalleryMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+      ),
+    );
+  }
+
+  Future<void> _uploadImage() async {
+    if (!_isAdmin || _isProcessing) return;
+
+    final file = await _pickImageFromGallery();
+    if (file == null) return;
+
+    final extension = _fileExtension(file.name);
+    final fileName = 'img_${DateTime.now().millisecondsSinceEpoch}.$extension';
+    final objectPath = '${widget.folderPath}/$fileName';
+    final bytes = await file.readAsBytes();
+
+    await _uploadToStorage(
+      objectPath: objectPath,
+      bytes: bytes,
+      extension: extension,
+      successMessage: 'Imagen subida correctamente al servidor.',
+    );
+  }
+
+  Future<void> _replaceImage(_GalleryImageItem item) async {
+    if (!_isAdmin || _isProcessing || !item.canBeManaged) return;
+
+    final file = await _pickImageFromGallery();
+    if (file == null) return;
+
+    final targetPath = item.objectPath!;
+    final extension = _fileExtension(file.name);
+    final bytes = await file.readAsBytes();
+
+    await _uploadToStorage(
+      objectPath: targetPath,
+      bytes: bytes,
+      extension: extension,
+      successMessage: 'Imagen reemplazada correctamente.',
+    );
+  }
+
+  Future<void> _uploadToStorage({
+    required String objectPath,
+    required Uint8List bytes,
+    required String extension,
+    required String successMessage,
+  }) async {
+    setState(() {
+      _isProcessing = true;
+    });
+
+    final ok = await _writeToServer(
+      method: 'PUT',
+      objectPath: objectPath,
+      bytes: bytes,
+      contentType: _mimeTypeForExtension(extension),
+    );
+
+    final uploaded =
+        await _tryApiUploadAction(
+          objectPath: objectPath,
+          bytes: bytes,
+          fileName: _basename(objectPath),
+        ) ||
+        ok;
+
+    if (uploaded) {
+      _showGalleryMessage(successMessage);
+      await _loadImages();
+    } else {
+      _showGalleryMessage(
+        'No se pudo completar la operación en el servidor.',
+        isError: true,
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = false;
+    });
+  }
+
+  Future<void> _deleteImage(_GalleryImageItem item) async {
+    if (!_isAdmin || _isProcessing || !item.canBeManaged) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar imagen'),
+        content: const Text('Esta acción no se puede deshacer. ¿Deseas continuar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    final deleted =
+        await _tryApiJsonAction(
+          endpoint: 'files/delete',
+          payload: {'path': item.objectPath!},
+        ) ||
+        await _writeToServer(
+          method: 'DELETE',
+          objectPath: item.objectPath!,
+        );
+
+    if (deleted) {
+      _showGalleryMessage('Imagen eliminada correctamente.');
+      await _loadImages();
+    } else {
+      _showGalleryMessage('No se pudo eliminar la imagen en el servidor.', isError: true);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = false;
+    });
   }
 
   bool _isImagePath(String value) {
@@ -745,79 +1641,129 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
         lower.endsWith('.webp');
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [widget.color, widget.color.withValues(alpha: 0.72)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: widget.color.withValues(alpha: 0.18),
-              blurRadius: 24,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(16),
+  Widget _buildGalleryBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_loadError != null) {
+      return _GalleryMessageCard(
+        color: widget.color,
+        icon: Icons.cloud_off_rounded,
+        title: 'Error de carga',
+        message: _loadError!,
+        actionLabel: 'Reintentar',
+        onAction: _loadImages,
+      );
+    }
+
+    if (_images.isEmpty) {
+      return _GalleryMessageCard(
+        color: widget.color,
+        icon: Icons.photo_library_outlined,
+        title: 'Sin imágenes',
+        message:
+            'No se encontraron imágenes publicadas para esta carpeta. Verifica que exista acceso HTTP al directorio del servidor para ${widget.folderPath}.',
+      );
+    }
+
+    return GridView.builder(
+      itemCount: _images.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1,
+      ),
+      itemBuilder: (context, index) {
+        final item = _images[index];
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Material(
+            color: Colors.white,
+            child: InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => _GalleryPreviewScreen(
+                      item: item,
+                      title: widget.folderTitle,
+                      color: widget.color,
+                    ),
                   ),
-                  child: const Icon(Icons.folder_rounded, color: Colors.white, size: 30),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.folderTitle,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          height: 1.1,
+                );
+              },
+              child: Ink(
+                decoration: const BoxDecoration(color: Colors.white),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    item.isAsset
+                        ? Image.asset(
+                            item.path,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _ImageErrorTile(
+                              color: widget.color,
+                            ),
+                          )
+                        : Image.network(
+                            item.path,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2.2),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => _ImageErrorTile(
+                              color: widget.color,
+                            ),
+                          ),
+                    if (_isAdmin && item.canBeManaged)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: PopupMenuButton<String>(
+                            enabled: !_isProcessing,
+                            icon: const Icon(Icons.more_vert, color: Colors.white),
+                            onSelected: (value) {
+                              if (value == 'replace') {
+                                _replaceImage(item);
+                              } else if (value == 'delete') {
+                                _deleteImage(item);
+                              }
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem<String>(
+                                value: 'replace',
+                                child: ListTile(
+                                  leading: Icon(Icons.edit_rounded),
+                                  title: Text('Reemplazar'),
+                                ),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'delete',
+                                child: ListTile(
+                                  leading: Icon(Icons.delete_rounded, color: Colors.red),
+                                  title: Text('Eliminar'),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Colección visual histórica',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Carpeta: ${widget.folderPath}',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.82),
-                fontSize: 12,
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -830,92 +1776,174 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
         title: Text(widget.folderTitle),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (_isAdmin)
+            PopupMenuButton<String>(
+              enabled: !_isProcessing,
+              icon: const Icon(Icons.admin_panel_settings_rounded),
+              tooltip: 'Acciones de admin',
+              onSelected: (value) {
+                if (value == 'upload') {
+                  _uploadImage();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem<String>(
+                  value: 'upload',
+                  child: ListTile(
+                    leading: Icon(Icons.add_photo_alternate_rounded),
+                    title: Text('Subir imagen'),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeader()),
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-          if (_isLoading)
-            const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_loadError != null)
-            SliverFillRemaining(
-              child: _GalleryMessageCard(
-                color: widget.color,
-                icon: Icons.cloud_off_rounded,
-                title: 'Error de carga',
-                message: _loadError!,
-                actionLabel: 'Reintentar',
-                onAction: _loadImages,
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFF0F4F8), Color(0xFFE7EEF5)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-            )
-          else if (_images.isEmpty)
-            SliverFillRemaining(
-              child: _GalleryMessageCard(
-                color: widget.color,
-                icon: Icons.photo_library_outlined,
-                title: 'Sin imágenes',
-                message:
-                    'No se encontraron imágenes publicadas para esta carpeta. '
-                    'Verifica que exista acceso HTTP al directorio del servidor para ${widget.folderPath}.',
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-              sliver: SliverGrid(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final item = _images[index];
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Material(
-                        color: Colors.white,
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => _GalleryPreviewScreen(
-                                  item: item,
-                                  title: widget.folderTitle,
-                                  color: widget.color,
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          widget.color,
+                          widget.color.withValues(alpha: 0.72),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: widget.color.withValues(alpha: 0.18),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(
+                                Icons.folder_rounded,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.folderTitle,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Colección visual histórica',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.78),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Carpeta: ${widget.folderPath}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (_isAdmin) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.admin_panel_settings_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Modo administrador activo (CRUD habilitado)',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            );
-                          },
-                          child: item.isAsset
-                              ? Image.asset(
-                                  item.path,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _ImageErrorTile(color: widget.color),
-                                )
-                              : Image.network(
-                                  item.path,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return const Center(
-                                      child: CircularProgressIndicator(strokeWidth: 2.2),
-                                    );
-                                  },
-                                  errorBuilder: (_, __, ___) =>
-                                      _ImageErrorTile(color: widget.color),
-                                ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: widget.color.withValues(alpha: 0.12),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 22,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                  childCount: _images.length,
-                ),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1,
-                ),
+                      child: _buildGalleryBody(),
+                    ),
+                  ),
+                ],
               ),
+            ),
+          ),
+          if (_isProcessing)
+            Container(
+              color: Colors.black.withValues(alpha: 0.18),
+              child: const Center(child: CircularProgressIndicator()),
             ),
         ],
       ),
@@ -923,11 +1951,27 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
   }
 }
 
+class _SupabaseGalleryLoad {
+  final String bucket;
+  final List<_GalleryImageItem> images;
+
+  const _SupabaseGalleryLoad({required this.bucket, required this.images});
+}
+
 class _GalleryImageItem {
   final String path;
   final bool isAsset;
+  final String? bucket;
+  final String? objectPath;
 
-  const _GalleryImageItem({required this.path, required this.isAsset});
+  const _GalleryImageItem({
+    required this.path,
+    required this.isAsset,
+    this.bucket,
+    this.objectPath,
+  });
+
+  bool get canBeManaged => objectPath != null && !isAsset;
 }
 
 class _GalleryMessageCard extends StatelessWidget {
@@ -1049,3 +2093,36 @@ class _GalleryPreviewScreen extends StatelessWidget {
   }
 }
 
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
