@@ -36,12 +36,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .from('profiles')
           .select()
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
       if (mounted) {
         setState(() {
           _profileData = response;
-          _profileTheme = _profileData!['profile_theme'] ?? 'ocean';
+          _profileTheme = _profileData?['profile_theme'] ?? 'ocean';
           _isLoading = false;
         });
       }
