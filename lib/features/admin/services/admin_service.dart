@@ -50,14 +50,28 @@ class AdminService {
   Future<bool> isCurrentUserAdmin() async {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) return false;
-    
-    final response = await _client
-        .from('profiles')
-        .select('role')
-        .eq('id', uid)
-        .maybeSingle();
+
+    Map<String, dynamic>? response;
+    try {
+      response = await _client
+          .from('profiles')
+          .select('role, is_admin')
+          .eq('id', uid)
+          .maybeSingle();
+    } catch (_) {
+      // Compatibilidad con esquemas que solo tienen la columna role.
+      response = await _client
+          .from('profiles')
+          .select('role')
+          .eq('id', uid)
+          .maybeSingle();
+    }
 
     if (response == null) return false;
-    return response['role'] == 'admin';
+
+    final roleValue = (response['role'] ?? '').toString().trim().toLowerCase();
+    final isAdminFlag = response['is_admin'] == true;
+
+    return isAdminFlag || roleValue == 'admin' || roleValue == 'superadmin';
   }
 }
