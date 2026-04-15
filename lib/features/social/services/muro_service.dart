@@ -1,14 +1,18 @@
+import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:museo_app/core/utils/profanity_filter.dart';
 import 'package:museo_app/features/social/services/social_service.dart';
+import 'package:museo_app/features/social/services/storage/storage_provider.dart';
+import 'package:museo_app/features/social/services/storage/supabase_storage_provider.dart';
 
 class MuroService {
   final SupabaseClient _client = Supabase.instance.client;
+  final StorageProvider _storageProvider = SupabaseStorageProvider();
 
   Future<List<Map<String, dynamic>>> fetchPosts() async {
     final response = await _client
         .from('posts')
-        .select('*, profiles(username, nombre, carrera, generacion, avatar_url, biografia, linkedin_url, email_publico, mentoria_abierta, es_egresado), post_reactions(user_id, reaction_type), post_comments(id)')
+        .select('*, profiles(username, nombre, carrera, generacion, avatar_url, biografia, linkedin_url, email_publico, mentoria_abierta, es_egresado), post_reactions(user_id, reaction_type), post_comments(id), post_mentions(user_id, profiles(nombre, username))')
         .order('created_at', ascending: false);
     
     final posts = List<Map<String, dynamic>>.from(response);
@@ -17,8 +21,8 @@ class MuroService {
     return posts.where((p) => !blockedUsers.contains(p['user_id'].toString())).toList();
   }
 
-  /// Crea un nuevo post con categoría.
-  Future<void> createPost(String contenido, {String categoria = 'General'}) async {
+  /// Crea un nuevo post con categoría, etiquetas e imágenes opcionales.
+  Future<void> createPost(String contenido, {String categoria = 'General', List<String> taggedUserIds = const [], List<File> imageFiles = const []}) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('Debés iniciar sesión para publicar.');
     
@@ -26,11 +30,41 @@ class MuroService {
       throw Exception('El mensaje contiene lenguaje no permitido para el contexto universitario.');
     }
 
-    await _client.from('posts').insert({
+    // Subir imágenes si existen
+    List<String> imageUrls = [];
+    if (imageFiles.isNotEmpty) {
+      for (var i = 0; i < imageFiles.length; i++) {
+        final file = imageFiles[i];
+        final ext = file.path.split('.').last;
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final path = '$userId/${timestamp}_img_$i.$ext';
+        
+        try {
+          final url = await _storageProvider.uploadImage(file, path);
+          imageUrls.add(url);
+        } catch (e) {
+          throw Exception('Error al subir la imagen: $e');
+        }
+      }
+    }
+
+    final postResponse = await _client.from('posts').insert({
       'user_id': userId,
       'contenido': contenido,
       'categoria': categoria,
-    });
+      if (imageUrls.isNotEmpty) 'image_urls': imageUrls,
+    }).select('id').single();
+
+    final postId = postResponse['id'];
+
+    if (taggedUserIds.isNotEmpty) {
+      final mentions = taggedUserIds.map((tid) => {
+        'post_id': postId,
+        'user_id': tid,
+      }).toList();
+      
+      await _client.from('post_mentions').insert(mentions);
+    }
   }
 
   /// Cargar comentarios de un post

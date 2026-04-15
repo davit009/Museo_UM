@@ -78,6 +78,35 @@ class _RestrictedChatScreenState extends State<RestrictedChatScreen> {
     try {
       await _socialService.sendMessage(widget.targetUserId, text);
       _scrollToBottom();
+
+      // --- LOGICA DE NOTIFICACIONES PUSH PARA CHAT ---
+      final res = await Supabase.instance.client
+          .from('fcm_tokens')
+          .select('token')
+          .eq('user_id', widget.targetUserId)
+          .order('updated_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (res != null && res['token'] != null) {
+        try {
+          final myProfile = await _socialService.getProfile(_currentUserId);
+          final myName = myProfile?['nombre'] ?? myProfile?['username'] ?? 'Un compañero';
+
+          await Supabase.instance.client.functions.invoke(
+            'notify-user',
+            body: {
+              'deviceToken': res['token'],
+              'title': '¡Nuevo Mensaje Privado!',
+              'body': '$myName te ha escrito en el Chat.',
+            },
+          );
+        } catch (e) {
+          print('Error al enviar push de chat: $e');
+        }
+      }
+      // ---------------------------------------------
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

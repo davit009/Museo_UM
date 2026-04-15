@@ -24,74 +24,95 @@ class IntroHistoriaScreen extends StatelessWidget {
             _HeroCard(
               icon: Icons.account_balance,
               color: _teal,
-              title: 'Nuestro Museo',
-              subtitle: 'Un espacio de arte, cultura e historia',
+              title: 'George W. Caviness',
+              subtitle: 'Corazón de nuestra memoria universitaria',
             ),
             const SizedBox(height: 20),
-            _SectionTitle('Historia del Museo', _darkNavy),
+            _SectionTitle('Bienvenida e Historia', _darkNavy),
             const SizedBox(height: 12),
             _InfoCard(
               content:
-                  'El museo de la Universidad de Montemorelos es un espacio dedicado '
-                  'a la preservación y difusión del patrimonio cultural y artístico '
-                  'de la región. Fundado con el propósito de acercar el arte y la '
-                  'historia a la comunidad, se ha convertido en un referente cultural '
-                  'de la provincia.',
+                  'Bienvenidos al Museo Universitario. Aquí, '
+                  'cada objeto guarda el eco de un sacrificio por la educación '
+                  'adventista. Nuestra universidad ha trazado un camino de fe '
+                  'que hoy nos toca continuar, recorriendo etapas que forjaron '
+                  'nuestra identidad actual.',
             ),
             const SizedBox(height: 20),
             _SectionTitle('Línea del Tiempo', _darkNavy),
             const SizedBox(height: 12),
             _TimelineItem(
-              year: 'Fundación',
+              year: '1935 - Orígenes',
               description:
-                  'Creación del museo como espacio cultural dentro de la '
-                  'Universidad de Montemorelos.',
+                  'Fundación del Instituto Comercial Prosperidad en la CDMX. '
+                  'Una pequeña semilla que contenía la grandeza de nuestra visión.',
               color: _teal,
               isFirst: true,
             ),
             _TimelineItem(
-              year: 'Primeras colecciones',
+              year: '1942 - El Traslado',
               description:
-                  'Incorporación de las primeras obras y piezas patrimoniales '
-                  'a la colección permanente.',
+                  'Nacimiento de la Escuela Agrícola Industrial Mexicana en '
+                  'la hacienda "La Carlota", Montemorelos.',
               color: const Color(0xFF2E7D9A),
             ),
             _TimelineItem(
-              year: 'Expansión',
+              year: '1951 - Crecimiento',
               description:
-                  'Ampliación de salas y apertura a nuevas expresiones artísticas '
-                  'y culturales de la región.',
+                  'Autorización del Colegio Vocacional y Profesional (COVOPROM) '
+                  'y ampliación del nivel académico e industrial.',
               color: const Color(0xFF5B6FA0),
             ),
             _TimelineItem(
-              year: 'Actualidad',
+              year: '1973 - Universidad',
               description:
-                  'Espacio vivo de cultura con exposiciones temporales, eventos '
-                  'educativos y programas para toda la comunidad.',
+                  'Decreto oficial de creación de la Universidad de Montemorelos. '
+                  'Amanecer de una nueva era de excelencia profesional.',
               color: _darkNavy,
               isLast: true,
             ),
             const SizedBox(height: 20),
-            _SectionTitle('Misión y Visión', _darkNavy),
+            _SectionTitle('Nuestra Esencia', _darkNavy),
             const SizedBox(height: 12),
             _MisionCard(
               icon: Icons.star,
-              title: 'Misión',
+              title: 'Filosofía',
               content:
-                  'Preservar, investigar y difundir el patrimonio cultural y '
-                  'artístico, fomentando el acceso de la comunidad al conocimiento '
-                  'y la cultura.',
+                  'La verdadera educación significa el desarrollo armonioso '
+                  'de las facultades físicas, mentales y espirituales.',
               color: _teal,
             ),
             const SizedBox(height: 10),
             _MisionCard(
               icon: Icons.visibility,
-              title: 'Visión',
+              title: 'Nuestro Lema',
               content:
-                  'Ser un museo de referencia regional, reconocido por su '
-                  'compromiso con la educación, la inclusión y la valorización '
-                  'del patrimonio cultural mendocino.',
+                  '"Educar es Redimir", nuestro sello inalterable y compromiso '
+                  'eterno con Dios y la humanidad.',
               color: _darkNavy,
+            ),
+            const SizedBox(height: 24),
+            _SectionTitle('Personajes Clave en Nuestra Historia', _darkNavy),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 0.85,
+              ),
+              itemCount: _importantPeople.length,
+              itemBuilder: (context, index) {
+                final person = _importantPeople[index];
+                return _PersonCard(
+                  name: person['name']!,
+                  role: person['role']!,
+                  imageUrl: person['imageUrl']!,
+                  color: (index % 2 == 0) ? _teal : _darkNavy,
+                );
+              },
             ),
             const SizedBox(height: 24),
           ],
@@ -100,6 +121,15 @@ class IntroHistoriaScreen extends StatelessWidget {
     );
   }
 }
+
+final List<Map<String, String>> _importantPeople = List.generate(
+  20,
+  (i) => {
+    'name': 'Nombre ${i + 1}',
+    'role': 'Pionero / Colaborador',
+    'imageUrl': 'https://picsum.photos/200/200?random=$i',
+  },
+);
 
 class _HeroCard extends StatelessWidget {
   final IconData icon;
@@ -170,11 +200,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: color,
-      ),
+      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
     );
   }
 }
@@ -193,7 +219,11 @@ class _InfoCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Text(
           content,
-          style: const TextStyle(fontSize: 15, height: 1.6, color: Color(0xFF444444)),
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.6,
+            color: Color(0xFF444444),
+          ),
         ),
       ),
     );
@@ -236,9 +266,7 @@ class _TimelineItem extends StatelessWidget {
                   ),
                 ),
                 if (!isLast)
-                  Expanded(
-                    child: Container(width: 2, color: Colors.grey[300]),
-                  ),
+                  Expanded(child: Container(width: 2, color: Colors.grey[300])),
               ],
             ),
           ),
@@ -248,7 +276,8 @@ class _TimelineItem extends StatelessWidget {
               child: Card(
                 elevation: 1,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -266,7 +295,9 @@ class _TimelineItem extends StatelessWidget {
                       Text(
                         description,
                         style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF555555)),
+                          fontSize: 14,
+                          color: Color(0xFF555555),
+                        ),
                       ),
                     ],
                   ),
@@ -328,10 +359,80 @@ class _MisionCard extends StatelessWidget {
                   Text(
                     content,
                     style: const TextStyle(
-                        fontSize: 14, height: 1.5, color: Color(0xFF555555)),
+                      fontSize: 14,
+                      height: 1.5,
+                      color: Color(0xFF555555),
+                    ),
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonCard extends StatelessWidget {
+  final String name;
+  final String role;
+  final String imageUrl;
+  final Color color;
+
+  const _PersonCard({
+    required this.name,
+    required this.role,
+    required this.imageUrl,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shadowColor: color.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: color.withValues(alpha: 0.2), width: 2),
+                image: DecorationImage(
+                  image: NetworkImage(imageUrl),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              role,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

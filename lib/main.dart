@@ -6,12 +6,15 @@ import 'package:museo_app/core/services/push_notification_service.dart';
 import 'package:museo_app/features/auth/screens/login_screen.dart';
 import 'package:museo_app/features/museum/screens/splash_screen.dart';
 import 'package:museo_app/features/museum/screens/home_screen.dart';
+import 'firebase_options.dart'; // Generado por FlutterFire CLI
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Inicializamos Firebase
-  await Firebase.initializeApp();
+  // Inicializamos Firebase con las opciones del proyecto
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   await Supabase.initialize(
     url: SupabaseConstants.url,

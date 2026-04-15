@@ -52,7 +52,7 @@ class MusicaScreen extends StatelessWidget {
                   Text(
                     'Descubrí cómo la música forma parte de nuestra propuesta '
                     'cultural, desde conciertos en vivo hasta exposiciones '
-                    'interactivas sobre la historia musical de Mendoza.',
+                    'interactivas sobre la historia musical de nuestra universidad y región.',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 14,
@@ -74,7 +74,7 @@ class MusicaScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _EventoCard(
               titulo: 'Concierto de Música Clásica',
-              descripcion: 'Orquesta de Cámara de Mendoza',
+              descripcion: 'Orquesta Sinfónica de la Universidad de Montemorelos',
               fecha: '20 Feb',
               hora: '19:00 hs',
               lugar: 'Sala Principal',
@@ -111,7 +111,7 @@ class MusicaScreen extends StatelessWidget {
               titulo: 'Archivo Sonoro',
               contenido:
                   'Colección de grabaciones históricas que documenta la '
-                  'evolución musical de la provincia de Mendoza.',
+                  'evolución musical de la región de Montemorelos y el norte de México.',
             ),
             const SizedBox(height: 10),
             _InfoMusicalCard(
