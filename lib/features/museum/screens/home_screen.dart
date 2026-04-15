@@ -144,7 +144,11 @@ class _SectionArtPainter extends CustomPainter {
       final a2 = a1 + math.pi / 5;
       final outer = center + Offset(math.cos(a1) * r, math.sin(a1) * r);
       final inner = center + Offset(math.cos(a2) * r * 0.42, math.sin(a2) * r * 0.42);
-      if (i == 0) path.moveTo(outer.dx, outer.dy); else path.lineTo(outer.dx, outer.dy);
+      if (i == 0) {
+        path.moveTo(outer.dx, outer.dy);
+      } else {
+        path.lineTo(outer.dx, outer.dy);
+      }
       path.lineTo(inner.dx, inner.dy);
     }
     path.close();
@@ -355,6 +359,7 @@ final _sections = [
   _Section(
     titulo: 'Galerías',
     subtitulo: 'Explora nuestro acervo fotográfico e histórico',
+    categoria: 'ARCHIVO VISUAL',
     icon: Icons.photo_library,
     color: const Color(0xFF2E7D9A),
     colorSecundario: const Color(0xFF1A5E75),
