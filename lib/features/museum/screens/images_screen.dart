@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:museo_app/features/admin/services/admin_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const List<String> _galleryBaseUrls = [
@@ -13,11 +16,345 @@ const List<String> _galleryBaseUrls = [
   'http://64.23.168.72/Galerias',
 ];
 
-class ImagesScreen extends StatelessWidget {
+const List<String> _galleryApiBaseUrls = [
+  'http://64.23.168.72/api/gallery',
+  'https://64.23.168.72/api/gallery',
+];
+
+Map<String, String> _serverAuthHeaders() {
+  final accessToken = Supabase.instance.client.auth.currentSession?.accessToken;
+  if (accessToken == null || accessToken.isEmpty) return {};
+  return {'Authorization': 'Bearer $accessToken'};
+}
+
+class ImagesScreen extends StatefulWidget {
   const ImagesScreen({super.key});
+
+  @override
+  State<ImagesScreen> createState() => _ImagesScreenState();
+}
+
+class _ImagesScreenState extends State<ImagesScreen> {
+  final AdminService _adminService = AdminService();
+  final List<Map<String, dynamic>> _collections = List<Map<String, dynamic>>.from(
+    _defaultImageFolders,
+  );
+
+  bool _isAdmin = false;
+  bool _isBusy = false;
 
   static const Color _primaryColor = Color(0xFF2E7D9A);
   static const Color _darkColor = Color(0xFF1A2B4A);
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminStatus();
+    _loadServerCollections();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _adminService.isCurrentUserAdmin();
+    if (!mounted) return;
+    setState(() {
+      _isAdmin = isAdmin;
+    });
+  }
+
+  Future<void> _loadServerCollections() async {
+    final seen = <String>{
+      for (final item in _collections) item['path'] as String,
+    };
+    final discovered = <Map<String, dynamic>>[];
+
+    for (final baseUrl in _galleryBaseUrls) {
+      try {
+        final html = await NetworkAssetBundle(Uri.parse('$baseUrl/')).loadString('');
+        if (!html.contains('Index of')) continue;
+
+        final hrefRegex = RegExp(r'href="([^"]+)"', caseSensitive: false);
+        for (final match in hrefRegex.allMatches(html)) {
+          final href = match.group(1);
+          if (href == null || href.isEmpty || href == '../' || href.startsWith('?')) {
+            continue;
+          }
+          if (!href.endsWith('/')) continue;
+
+          final folder = Uri.decodeComponent(href.substring(0, href.length - 1));
+          if (folder.trim().isEmpty || seen.contains(folder)) continue;
+
+          seen.add(folder);
+          discovered.add(
+            {
+              'title': folder,
+              'path': folder,
+              'icon': Icons.folder,
+              'color': const Color(0xFF44617B),
+            },
+          );
+        }
+      } catch (_) {
+        // Sigue con la siguiente base.
+      }
+    }
+
+    if (!mounted || discovered.isEmpty) return;
+    setState(() {
+      _collections.addAll(discovered);
+    });
+  }
+
+  Future<String?> _promptText({
+    required String title,
+    required String hint,
+    String? initialValue,
+    String confirmLabel = 'Guardar',
+  }) async {
+    final controller = TextEditingController(text: initialValue ?? '');
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return value?.trim();
+  }
+
+  String _safeObjectName(String value) {
+    return value
+        .trim()
+        .replaceAll(RegExp(r'\\+'), '-')
+        .replaceAll(RegExp(r'/+'), '-')
+        .replaceAll(RegExp(r'\s+'), '_');
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+      ),
+    );
+  }
+
+  Future<bool> _tryWebDavMethod({
+    required String method,
+    required String fromPath,
+    String? destinationPath,
+  }) async {
+    final headers = _serverAuthHeaders();
+
+    for (final base in _galleryBaseUrls) {
+      final cleanBase = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+      final encodedFrom = fromPath
+          .split('/')
+          .where((part) => part.trim().isNotEmpty)
+          .map(Uri.encodeComponent)
+          .join('/');
+      final fromUri = Uri.parse('$cleanBase/$encodedFrom');
+      final request = http.Request(method, fromUri);
+      request.headers.addAll(headers);
+
+      if (method == 'MOVE' && destinationPath != null) {
+        final encodedTo = destinationPath
+            .split('/')
+            .where((part) => part.trim().isNotEmpty)
+            .map(Uri.encodeComponent)
+            .join('/');
+        final destinationUri = Uri.parse('$cleanBase/$encodedTo');
+        request.headers['Destination'] = destinationUri.toString();
+        request.headers['Overwrite'] = 'T';
+      }
+
+      try {
+        final streamed = await request.send();
+        if (streamed.statusCode >= 200 && streamed.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Prueba siguiente base.
+      }
+    }
+
+    return false;
+  }
+
+  Future<bool> _tryApiJsonAction({
+    required String endpoint,
+    required Map<String, dynamic> payload,
+  }) async {
+    final headers = {
+      ..._serverAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+
+    for (final baseUrl in _galleryApiBaseUrls) {
+      final cleanBase = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final uri = Uri.parse('$cleanBase/$endpoint');
+      try {
+        final response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(payload),
+        );
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Prueba el siguiente endpoint base.
+      }
+    }
+
+    return false;
+  }
+
+  Future<void> _createCollection() async {
+    if (!_isAdmin || _isBusy) return;
+
+    final name = await _promptText(
+      title: 'Crear carpeta',
+      hint: 'Nombre de la carpeta',
+      confirmLabel: 'Crear',
+    );
+    if (name == null || name.isEmpty) return;
+
+    final path = _safeObjectName(name);
+    if (path.isEmpty) return;
+
+    setState(() => _isBusy = true);
+    final ok =
+      await _tryApiJsonAction(endpoint: 'folders/create', payload: {'path': path}) ||
+      await _tryWebDavMethod(method: 'MKCOL', fromPath: '$path/');
+    if (!mounted) return;
+
+    setState(() {
+      _isBusy = false;
+      if (ok) {
+        _collections.add(
+          {
+            'title': name,
+            'path': path,
+            'icon': Icons.folder,
+            'color': const Color(0xFF44617B),
+          },
+        );
+      }
+    });
+
+    _showMessage(
+      ok
+          ? 'Carpeta creada correctamente.'
+          : 'No se pudo crear la carpeta en el servidor.',
+      isError: !ok,
+    );
+  }
+
+  Future<void> _renameCollection(Map<String, dynamic> folder) async {
+    if (!_isAdmin || _isBusy) return;
+
+    final currentPath = folder['path'] as String;
+    final requested = await _promptText(
+      title: 'Renombrar carpeta',
+      hint: 'Nuevo nombre',
+      initialValue: currentPath,
+      confirmLabel: 'Renombrar',
+    );
+    if (requested == null || requested.isEmpty) return;
+
+    final newPath = _safeObjectName(requested);
+    if (newPath.isEmpty || newPath == currentPath) return;
+
+    setState(() => _isBusy = true);
+    final ok =
+        await _tryApiJsonAction(
+          endpoint: 'folders/rename',
+          payload: {'from': currentPath, 'to': newPath},
+        ) ||
+        await _tryWebDavMethod(
+          method: 'MOVE',
+          fromPath: currentPath,
+          destinationPath: '$newPath/',
+        );
+    if (!mounted) return;
+
+    setState(() {
+      _isBusy = false;
+      if (ok) {
+        folder['title'] = requested;
+        folder['path'] = newPath;
+      }
+    });
+
+    _showMessage(
+      ok
+          ? 'Carpeta renombrada correctamente.'
+          : 'No se pudo renombrar la carpeta en el servidor.',
+      isError: !ok,
+    );
+  }
+
+  Future<void> _deleteCollection(Map<String, dynamic> folder) async {
+    if (!_isAdmin || _isBusy) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar carpeta'),
+        content: const Text('Esta acción eliminará la carpeta del servidor. ¿Continuar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    final path = folder['path'] as String;
+    setState(() => _isBusy = true);
+    final ok =
+      await _tryApiJsonAction(endpoint: 'folders/delete', payload: {'path': path}) ||
+      await _tryWebDavMethod(method: 'DELETE', fromPath: '$path/');
+    if (!mounted) return;
+
+    setState(() {
+      _isBusy = false;
+      if (ok) {
+        _collections.remove(folder);
+      }
+    });
+
+    _showMessage(
+      ok
+          ? 'Carpeta eliminada correctamente.'
+          : 'No se pudo eliminar la carpeta en el servidor.',
+      isError: !ok,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +365,37 @@ class ImagesScreen extends StatelessWidget {
         title: const Text('Galería Multimedia'),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (_isAdmin)
+            PopupMenuButton<String>(
+              enabled: !_isBusy,
+              icon: const Icon(Icons.admin_panel_settings_rounded),
+              tooltip: 'CRUD de carpetas',
+              onSelected: (value) {
+                if (value == 'create') {
+                  _createCollection();
+                } else if (value == 'refresh') {
+                  _loadServerCollections();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem<String>(
+                  value: 'create',
+                  child: ListTile(
+                    leading: Icon(Icons.create_new_folder_rounded),
+                    title: Text('Crear carpeta'),
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'refresh',
+                  child: ListTile(
+                    leading: Icon(Icons.refresh_rounded),
+                    title: Text('Recargar carpetas'),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: Stack(
         children: [
@@ -139,7 +507,7 @@ class ImagesScreen extends StatelessWidget {
                           children: [
                             _InfoChip(
                               icon: Icons.collections_rounded,
-                              label: '${_imageFolders.length} colecciones',
+                              label: '${_collections.length} colecciones',
                             ),
                             const _InfoChip(
                               icon: Icons.auto_awesome,
@@ -195,14 +563,18 @@ class ImagesScreen extends StatelessWidget {
                       mainAxisSpacing: 12,
                       childAspectRatio: 1.05,
                     ),
-                    itemCount: _imageFolders.length,
+                    itemCount: _collections.length,
                     itemBuilder: (context, index) {
-                      final folder = _imageFolders[index];
+                      final folder = _collections[index];
                       return _FolderCard(
                         title: folder['title']!,
                         icon: folder['icon'] as IconData,
                         color: folder['color'] as Color,
                         folderPath: folder['path']!,
+                        isAdmin: _isAdmin,
+                        isBusy: _isBusy,
+                        onRename: () => _renameCollection(folder),
+                        onDelete: () => _deleteCollection(folder),
                       );
                     },
                   ),
@@ -210,13 +582,18 @@ class ImagesScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (_isBusy)
+            Container(
+              color: Colors.black.withValues(alpha: 0.18),
+              child: const Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
     );
   }
 }
 
-final List<Map<String, dynamic>> _imageFolders = [
+final List<Map<String, dynamic>> _defaultImageFolders = [
   {
     'title': '1894 Iglesia',
     'path': '1894-iglesia-Educación',
@@ -296,12 +673,20 @@ class _FolderCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String folderPath;
+  final bool isAdmin;
+  final bool isBusy;
+  final VoidCallback? onRename;
+  final VoidCallback? onDelete;
 
   const _FolderCard({
     required this.title,
     required this.icon,
     required this.color,
     required this.folderPath,
+    this.isAdmin = false,
+    this.isBusy = false,
+    this.onRename,
+    this.onDelete,
   });
 
   @override
@@ -362,6 +747,44 @@ class _FolderCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (isAdmin)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: PopupMenuButton<String>(
+                        enabled: !isBusy,
+                        icon: const Icon(Icons.more_vert, color: Colors.white),
+                        onSelected: (value) {
+                          if (value == 'rename') {
+                            onRename?.call();
+                          } else if (value == 'delete') {
+                            onDelete?.call();
+                          }
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem<String>(
+                            value: 'rename',
+                            child: ListTile(
+                              leading: Icon(Icons.drive_file_rename_outline_rounded),
+                              title: Text('Renombrar carpeta'),
+                            ),
+                          ),
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: ListTile(
+                              leading: Icon(Icons.delete_rounded, color: Colors.red),
+                              title: Text('Eliminar carpeta'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
@@ -448,14 +871,31 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     'muro_images',
   ];
 
+  final AdminService _adminService = AdminService();
+  final ImagePicker _imagePicker = ImagePicker();
   final List<_GalleryImageItem> _images = [];
   bool _isLoading = true;
+  bool _isAdmin = false;
+  bool _isProcessing = false;
   String? _loadError;
 
   @override
   void initState() {
     super.initState();
+    _checkAdminStatus();
     _loadImages();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final isAdmin = await _adminService.isCurrentUserAdmin();
+    if (!mounted) return;
+    final shouldReload = !_isAdmin && isAdmin;
+    setState(() {
+      _isAdmin = isAdmin;
+    });
+    if (shouldReload) {
+      await _loadImages();
+    }
   }
 
   Future<void> _loadImages() async {
@@ -490,7 +930,7 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
       if (!mounted) return;
 
       setState(() {
-        _images.addAll(fromSupabase);
+        if (fromSupabase != null) _images.addAll(fromSupabase.images);
         _isLoading = false;
       });
     } catch (_) {
@@ -511,7 +951,17 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
         final imageUrls = await _tryReadApacheIndex(baseUrl, alias);
         if (imageUrls.isNotEmpty) {
           return imageUrls
-              .map((url) => _GalleryImageItem(path: url, isAsset: false))
+              .map((url) {
+                final uri = Uri.parse(url);
+                final fileName = uri.pathSegments.isNotEmpty
+                    ? Uri.decodeComponent(uri.pathSegments.last)
+                    : 'imagen.jpg';
+                return _GalleryImageItem(
+                  path: url,
+                  isAsset: false,
+                  objectPath: '$alias/$fileName',
+                );
+              })
               .toList();
         }
       }
@@ -638,7 +1088,7 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     }
   }
 
-  Future<List<_GalleryImageItem>> _loadImagesFromSupabase() async {
+  Future<_SupabaseGalleryLoad?> _loadImagesFromSupabase() async {
     final client = Supabase.instance.client;
 
     for (final bucket in _bucketCandidates) {
@@ -653,22 +1103,454 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
 
         if (files.isEmpty) continue;
 
-        return files
+        final images = files
             .map(
-              (file) => _GalleryImageItem(
-                path: client.storage
-                    .from(bucket)
-                    .getPublicUrl('${widget.folderPath}/${file.name}'),
-                isAsset: false,
-              ),
+              (file) {
+                final objectPath = '${widget.folderPath}/${file.name}';
+                return _GalleryImageItem(
+                  path: client.storage.from(bucket).getPublicUrl(objectPath),
+                  isAsset: false,
+                  bucket: bucket,
+                  objectPath: objectPath,
+                );
+              },
             )
             .toList();
+
+        return _SupabaseGalleryLoad(bucket: bucket, images: images);
       } catch (_) {
         // Si el bucket no existe o no tiene permisos de list, sigue con el siguiente.
       }
     }
 
-    return const [];
+    return null;
+  }
+
+  Uri _buildEncodedServerUri(String baseUrl, String objectPath) {
+    final cleanBase = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+    final parts = objectPath
+        .split('/')
+        .where((part) => part.trim().isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
+    return Uri.parse('$cleanBase/$parts');
+  }
+
+  Future<bool> _writeToServer({
+    required String method,
+    required String objectPath,
+    Uint8List? bytes,
+    String? contentType,
+    String? destinationPath,
+  }) async {
+    final headersBase = _serverAuthHeaders();
+
+    for (final baseUrl in _galleryBaseUrls) {
+      final uri = _buildEncodedServerUri(baseUrl, objectPath);
+      final request = http.Request(method, uri);
+      request.headers.addAll(headersBase);
+      if (contentType != null) {
+        request.headers['Content-Type'] = contentType;
+      }
+      if (destinationPath != null && method == 'MOVE') {
+        final destinationUri = _buildEncodedServerUri(baseUrl, destinationPath);
+        request.headers['Destination'] = destinationUri.toString();
+        request.headers['Overwrite'] = 'T';
+      }
+      if (bytes != null) {
+        request.bodyBytes = bytes;
+      }
+
+      try {
+        final response = await request.send();
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Probar siguiente base.
+      }
+    }
+
+    return false;
+  }
+
+  Future<bool> _tryApiJsonAction({
+    required String endpoint,
+    required Map<String, dynamic> payload,
+  }) async {
+    final headers = {
+      ..._serverAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+
+    for (final baseUrl in _galleryApiBaseUrls) {
+      final cleanBase = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final uri = Uri.parse('$cleanBase/$endpoint');
+      try {
+        final response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(payload),
+        );
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Intenta con el siguiente endpoint.
+      }
+    }
+
+    return false;
+  }
+
+  Future<bool> _tryApiUploadAction({
+    required String objectPath,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final headers = _serverAuthHeaders();
+
+    for (final baseUrl in _galleryApiBaseUrls) {
+      final cleanBase = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final uri = Uri.parse('$cleanBase/files/upload');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+      request.fields['path'] = objectPath;
+      request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+
+      try {
+        final response = await request.send();
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return true;
+        }
+      } catch (_) {
+        // Intenta con el siguiente endpoint.
+      }
+    }
+
+    return false;
+  }
+
+  Future<XFile?> _pickImageFromGallery() async {
+    try {
+      return await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 92);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _fileExtension(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    if (dot < 0 || dot == fileName.length - 1) return 'jpg';
+    return fileName.substring(dot + 1).toLowerCase();
+  }
+
+  String _mimeTypeForExtension(String extension) {
+    switch (extension) {
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'jpeg':
+      case 'jpg':
+      default:
+        return 'image/jpeg';
+    }
+  }
+
+  Future<String?> _promptText({
+    required String title,
+    required String hint,
+    String? initialValue,
+    String confirmLabel = 'Guardar',
+  }) async {
+    final controller = TextEditingController(text: initialValue ?? '');
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+
+    return value?.trim();
+  }
+
+  String _safeObjectName(String value) {
+    return value
+        .trim()
+        .replaceAll(RegExp(r'\\+'), '-')
+        .replaceAll(RegExp(r'/+'), '-')
+        .replaceAll(RegExp(r'\s+'), '_');
+  }
+
+  String _basename(String path) {
+    final parts = path.split('/');
+    return parts.isEmpty ? path : parts.last;
+  }
+
+  String _fileNameWithoutExtension(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    if (dot <= 0) return fileName;
+    return fileName.substring(0, dot);
+  }
+
+  Future<void> _createFolder() async {
+    if (!_isAdmin || _isProcessing) return;
+
+    final folderName = await _promptText(
+      title: 'Crear carpeta',
+      hint: 'Nombre de la nueva carpeta',
+      confirmLabel: 'Crear',
+    );
+    if (folderName == null || folderName.isEmpty) return;
+
+    final cleanFolder = _safeObjectName(folderName);
+    if (cleanFolder.isEmpty) {
+      _showGalleryMessage('Nombre de carpeta inválido.', isError: true);
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    final created =
+        await _tryApiJsonAction(
+          endpoint: 'folders/create',
+          payload: {'path': '${widget.folderPath}/$cleanFolder'},
+        ) ||
+        await _writeToServer(
+          method: 'MKCOL',
+          objectPath: '${widget.folderPath}/$cleanFolder/',
+        );
+
+    if (created) {
+      _showGalleryMessage('Carpeta creada correctamente.');
+    } else {
+      _showGalleryMessage('No se pudo crear la carpeta en el servidor.', isError: true);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = false;
+    });
+  }
+
+  void _showGalleryMessage(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+      ),
+    );
+  }
+
+  Future<void> _uploadImage() async {
+    if (!_isAdmin || _isProcessing) return;
+
+    final file = await _pickImageFromGallery();
+    if (file == null) return;
+
+    final extension = _fileExtension(file.name);
+    final fileName = 'img_${DateTime.now().millisecondsSinceEpoch}.$extension';
+    final objectPath = '${widget.folderPath}/$fileName';
+    final bytes = await file.readAsBytes();
+
+    await _uploadToStorage(
+      objectPath: objectPath,
+      bytes: bytes,
+      extension: extension,
+      successMessage: 'Imagen subida correctamente al servidor.',
+    );
+  }
+
+  Future<void> _replaceImage(_GalleryImageItem item) async {
+    if (!_isAdmin || _isProcessing || !item.canBeManaged) return;
+
+    final file = await _pickImageFromGallery();
+    if (file == null) return;
+
+    final targetPath = item.objectPath!;
+    final extension = _fileExtension(file.name);
+    final bytes = await file.readAsBytes();
+
+    await _uploadToStorage(
+      objectPath: targetPath,
+      bytes: bytes,
+      extension: extension,
+      successMessage: 'Imagen reemplazada correctamente.',
+    );
+  }
+
+  Future<void> _renameImage(_GalleryImageItem item) async {
+    if (!_isAdmin || _isProcessing || !item.canBeManaged) return;
+
+    final currentPath = item.objectPath!;
+    final currentName = _basename(currentPath);
+    final currentBaseName = _fileNameWithoutExtension(currentName);
+    final currentExt = _fileExtension(currentName);
+
+    final requested = await _promptText(
+      title: 'Renombrar foto',
+      hint: 'Nuevo nombre de la foto',
+      initialValue: currentBaseName,
+      confirmLabel: 'Renombrar',
+    );
+    if (requested == null || requested.isEmpty) return;
+
+    var cleanName = _safeObjectName(requested);
+    if (cleanName.isEmpty) {
+      _showGalleryMessage('Nombre inválido.', isError: true);
+      return;
+    }
+    if (!cleanName.toLowerCase().endsWith('.$currentExt')) {
+      cleanName = '$cleanName.$currentExt';
+    }
+
+    final folderPrefix = currentPath.contains('/')
+        ? currentPath.substring(0, currentPath.lastIndexOf('/'))
+        : widget.folderPath;
+    final newPath = '$folderPrefix/$cleanName';
+    if (newPath == currentPath) return;
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    final moved =
+        await _tryApiJsonAction(
+          endpoint: 'files/rename',
+          payload: {'from': currentPath, 'to': newPath},
+        ) ||
+        await _writeToServer(
+          method: 'MOVE',
+          objectPath: currentPath,
+          destinationPath: newPath,
+        );
+
+    if (moved) {
+      _showGalleryMessage('Foto renombrada correctamente.');
+      await _loadImages();
+    } else {
+      _showGalleryMessage('No se pudo renombrar la foto en el servidor.', isError: true);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = false;
+    });
+  }
+
+  Future<void> _uploadToStorage({
+    required String objectPath,
+    required Uint8List bytes,
+    required String extension,
+    required String successMessage,
+  }) async {
+    setState(() {
+      _isProcessing = true;
+    });
+
+    final ok = await _writeToServer(
+      method: 'PUT',
+      objectPath: objectPath,
+      bytes: bytes,
+      contentType: _mimeTypeForExtension(extension),
+    );
+
+    final uploaded =
+        await _tryApiUploadAction(
+          objectPath: objectPath,
+          bytes: bytes,
+          fileName: _basename(objectPath),
+        ) ||
+        ok;
+
+    if (uploaded) {
+      _showGalleryMessage(successMessage);
+      await _loadImages();
+    } else {
+      _showGalleryMessage(
+        'No se pudo completar la operación en el servidor.',
+        isError: true,
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = false;
+    });
+  }
+
+  Future<void> _deleteImage(_GalleryImageItem item) async {
+    if (!_isAdmin || _isProcessing || !item.canBeManaged) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar imagen'),
+        content: const Text('Esta acción no se puede deshacer. ¿Deseas continuar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    final deleted =
+        await _tryApiJsonAction(
+          endpoint: 'files/delete',
+          payload: {'path': item.objectPath!},
+        ) ||
+        await _writeToServer(
+          method: 'DELETE',
+          objectPath: item.objectPath!,
+        );
+
+    if (deleted) {
+      _showGalleryMessage('Imagen eliminada correctamente.');
+      await _loadImages();
+    } else {
+      _showGalleryMessage('No se pudo eliminar la imagen en el servidor.', isError: true);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = false;
+    });
   }
 
   bool _isImagePath(String value) {
@@ -733,27 +1615,79 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
               },
               child: Ink(
                 decoration: const BoxDecoration(color: Colors.white),
-                child: item.isAsset
-                    ? Image.asset(
-                        item.path,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _ImageErrorTile(
-                          color: widget.color,
-                        ),
-                      )
-                    : Image.network(
-                        item.path,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2.2),
-                          );
-                        },
-                        errorBuilder: (_, __, ___) => _ImageErrorTile(
-                          color: widget.color,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    item.isAsset
+                        ? Image.asset(
+                            item.path,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _ImageErrorTile(
+                              color: widget.color,
+                            ),
+                          )
+                        : Image.network(
+                            item.path,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2.2),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => _ImageErrorTile(
+                              color: widget.color,
+                            ),
+                          ),
+                    if (_isAdmin && item.canBeManaged)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: PopupMenuButton<String>(
+                            enabled: !_isProcessing,
+                            icon: const Icon(Icons.more_vert, color: Colors.white),
+                            onSelected: (value) {
+                              if (value == 'edit') {
+                                _replaceImage(item);
+                              } else if (value == 'rename') {
+                                _renameImage(item);
+                              } else if (value == 'delete') {
+                                _deleteImage(item);
+                              }
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem<String>(
+                                value: 'edit',
+                                child: ListTile(
+                                  leading: Icon(Icons.edit_rounded),
+                                  title: Text('Reemplazar'),
+                                ),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'rename',
+                                child: ListTile(
+                                  leading: Icon(Icons.drive_file_rename_outline_rounded),
+                                  title: Text('Renombrar'),
+                                ),
+                              ),
+                              PopupMenuItem<String>(
+                                value: 'delete',
+                                child: ListTile(
+                                  leading: Icon(Icons.delete_rounded, color: Colors.red),
+                                  title: Text('Eliminar'),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -771,6 +1705,37 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
         title: Text(widget.folderTitle),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (_isAdmin)
+            PopupMenuButton<String>(
+              enabled: !_isProcessing,
+              icon: const Icon(Icons.admin_panel_settings_rounded),
+              tooltip: 'Acciones de admin',
+              onSelected: (value) {
+                if (value == 'upload') {
+                  _uploadImage();
+                } else if (value == 'folder') {
+                  _createFolder();
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem<String>(
+                  value: 'upload',
+                  child: ListTile(
+                    leading: Icon(Icons.add_photo_alternate_rounded),
+                    title: Text('Subir imagen'),
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'folder',
+                  child: ListTile(
+                    leading: Icon(Icons.create_new_folder_rounded),
+                    title: Text('Crear carpeta'),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: Stack(
         children: [
@@ -863,6 +1828,27 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
                             fontSize: 12,
                           ),
                         ),
+                        if (_isAdmin) ...[
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.admin_panel_settings_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Modo administrador activo (CRUD habilitado)',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -892,17 +1878,38 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
               ),
             ),
           ),
+          if (_isProcessing)
+            Container(
+              color: Colors.black.withValues(alpha: 0.18),
+              child: const Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
     );
   }
 }
 
+class _SupabaseGalleryLoad {
+  final String bucket;
+  final List<_GalleryImageItem> images;
+
+  const _SupabaseGalleryLoad({required this.bucket, required this.images});
+}
+
 class _GalleryImageItem {
   final String path;
   final bool isAsset;
+  final String? bucket;
+  final String? objectPath;
 
-  const _GalleryImageItem({required this.path, required this.isAsset});
+  const _GalleryImageItem({
+    required this.path,
+    required this.isAsset,
+    this.bucket,
+    this.objectPath,
+  });
+
+  bool get canBeManaged => objectPath != null && !isAsset;
 }
 
 class _GalleryMessageCard extends StatelessWidget {
