@@ -3,83 +3,55 @@ import 'package:flutter/material.dart';
 class JubiladosScreen extends StatelessWidget {
   const JubiladosScreen({super.key});
 
-  static const Color _color = Color(0xFF5B6FA0);
+  static const Color _navy = Color(0xFF1A2545);
+  static const Color _cream = Color(0xFFF5F0E8);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
+      backgroundColor: _cream,
       appBar: AppBar(
-        backgroundColor: _color,
-        title: const Text('Jubilados'),
+        backgroundColor: _navy,
+        title: const Text(
+          'JUBILADOS',
+          style: TextStyle(letterSpacing: 2.5, fontSize: 16, fontWeight: FontWeight.w700),
+        ),
         foregroundColor: Colors.white,
         elevation: 0,
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_color, const Color(0xFF3D4A6F)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.groups, color: Colors.white, size: 40),
-                      SizedBox(width: 12),
-                      Text(
-                        'Jubilados',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    'En esta sección se presentan los jubilados de la Universidad de Montemorelos, reconociendo su trayectoria y servicio.',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      height: 1.6,
-                    ),
-                  ),
-                ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2),
+          child: Container(
+            height: 2,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF6B5000), Color(0xFFD4AF5A), Color(0xFF6B5000)],
               ),
             ),
           ),
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        ),
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _Header(total: _jubiladosCondecorados.length)),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+            sliver: SliverGrid(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final jubilado = _jubiladosCondecorados[index];
+                  return _JubiladoPhotoCard(
+                    bottomLabel: jubilado['bottomLabel']!,
+                    imageFile: jubilado['imageFile']!,
+                  );
+                },
+                childCount: _jubiladosCondecorados.length,
+              ),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.8,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 20,
+                childAspectRatio: 0.72,
               ),
-              itemCount: _jubiladosCondecorados.length,
-              itemBuilder: (context, index) {
-                final jubilado = _jubiladosCondecorados[index];
-                return _JubiladoPhotoCard(
-                  topLabel: jubilado['topLabel']!,
-                  bottomLabel: jubilado['bottomLabel']!,
-                  imageFile: jubilado['imageFile']!,
-                  color: (index % 2 == 0) ? _color : const Color(0xFF1B9E8A),
-                );
-              },
             ),
           ),
         ],
@@ -154,17 +126,159 @@ final List<Map<String, String>> _jubiladosCondecorados = _jubiladosImageFiles
     )
     .toList();
 
+// ── Header del museo ────────────────────────────────────────────────────────
+class _Header extends StatelessWidget {
+  final int total;
+  const _Header({required this.total});
+
+  static const Color _navy = Color(0xFF1A2545);
+  static const Color _gold = Color(0xFFB8973A);
+  static const Color _goldLight = Color(0xFFD4AF5A);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1A2545), Color(0xFF2C3E6B), Color(0xFF1A2545)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _navy.withValues(alpha: 0.45),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -30, right: -30,
+            child: Container(
+              width: 130, height: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.03),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -20, left: -20,
+            child: Container(
+              width: 100, height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _gold.withValues(alpha: 0.07),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 52, height: 52,
+                      decoration: BoxDecoration(
+                        color: _gold.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: _gold.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(Icons.groups_rounded, color: _goldLight, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'GALERÍA DE HONOR',
+                          style: TextStyle(
+                            color: _goldLight,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2.5,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Jubilados UM',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(width: 36, height: 1, color: _gold.withValues(alpha: 0.6)),
+                    Container(
+                      width: 5, height: 5,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: _gold),
+                    ),
+                    Expanded(child: Container(height: 1, color: _gold.withValues(alpha: 0.25))),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Reconociendo la trayectoria y servicio de quienes dedicaron su vida a la Universidad de Montemorelos.',
+                  style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _gold.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _gold.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.photo_library_outlined, color: _goldLight, size: 14),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$total retratos',
+                        style: const TextStyle(
+                          color: _goldLight,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Tarjeta de retrato ───────────────────────────────────────────────────────
 class _JubiladoPhotoCard extends StatefulWidget {
-  final String topLabel;
   final String bottomLabel;
   final String imageFile;
-  final Color color;
 
   const _JubiladoPhotoCard({
-    required this.topLabel,
     required this.bottomLabel,
     required this.imageFile,
-    required this.color,
   });
 
   @override
@@ -172,6 +286,9 @@ class _JubiladoPhotoCard extends StatefulWidget {
 }
 
 class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
+  static const Color _navy = Color(0xFF1A2545);
+  static const Color _gold = Color(0xFFB8973A);
+
   int _baseUrlIndex = 0;
 
   String get _currentImageUrl {
@@ -181,107 +298,129 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
 
   void _useNextUrl() {
     if (_baseUrlIndex < _jubiladosBaseUrls.length - 1) {
-      setState(() {
-        _baseUrlIndex++;
-      });
+      setState(() => _baseUrlIndex++);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(
-            _currentImageUrl,
-            key: ValueKey(_currentImageUrl),
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                color: Colors.grey[200],
-                child: const Center(child: CircularProgressIndicator()),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              if (_baseUrlIndex < _jubiladosBaseUrls.length - 1) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    _useNextUrl();
-                  }
-                });
-                return Container(
-                  color: Colors.grey[200],
-                  child: const Center(child: CircularProgressIndicator()),
-                );
-              }
-              return Container(
-                color: Colors.grey[300],
-                child: const Icon(Icons.broken_image, size: 50, color: Colors.grey),
-              );
-            },
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.65),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: Text(
-                widget.topLabel,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.8),
-                  ],
-                ),
-              ),
-              child: Text(
-                widget.bottomLabel,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _gold.withValues(alpha: 0.30), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: _navy.withValues(alpha: 0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: Column(
+          children: [
+            // Franja dorada superior
+            Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF6B5000), Color(0xFFD4AF5A), Color(0xFF6B5000)],
+                ),
+              ),
+            ),
+            // Imagen
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    _currentImageUrl,
+                    key: ValueKey(_currentImageUrl),
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        color: const Color(0xFFF0EBE0),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: _gold,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      if (_baseUrlIndex < _jubiladosBaseUrls.length - 1) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _useNextUrl();
+                        });
+                        return Container(
+                          color: const Color(0xFFF0EBE0),
+                          child: Center(
+                            child: CircularProgressIndicator(color: _gold, strokeWidth: 2),
+                          ),
+                        );
+                      }
+                      return Container(
+                        color: const Color(0xFFEDE8DF),
+                        child: Icon(Icons.person, size: 56, color: _gold.withValues(alpha: 0.4)),
+                      );
+                    },
+                  ),
+                  // Viñeta sutil en bordes
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment.center,
+                        radius: 1.1,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.18),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Sección del nombre
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              color: Colors.white,
+              child: Column(
+                children: [
+                  Container(
+                    height: 2,
+                    width: 28,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFB8973A), Color(0xFFD4AF5A)],
+                      ),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.bottomLabel,
+                    style: const TextStyle(
+                      color: _navy,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                      height: 1.3,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
