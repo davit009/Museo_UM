@@ -7,7 +7,7 @@ class ComoLlegarScreen extends StatelessWidget {
   const ComoLlegarScreen({super.key});
 
   static const Color _color = Color(0xFF2E9E5E);
-  // Coordenadas de la Universidad de Montemor
+  // Coordenadas de la Universidad de Montemorelos
   static const LatLng _umLocation = LatLng(25.191203, -99.8459058);
 
   Future<void> _openGoogleMaps() async {
