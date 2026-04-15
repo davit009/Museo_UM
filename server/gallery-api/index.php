@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
@@ -124,6 +126,68 @@ function delete_directory_recursive(string $dir): bool
     return rmdir($dir);
 }
 
+function list_images_in_folder(string $dir): array
+{
+    if (!is_dir($dir)) {
+        return [];
+    }
+
+    $items = scandir($dir);
+    if ($items === false) {
+        return [];
+    }
+
+    $allowed = ['jpg', 'jpeg', 'png', 'webp'];
+    $files = [];
+
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+
+        $target = $dir . '/' . $item;
+        if (!is_file($target)) {
+            continue;
+        }
+
+        $ext = strtolower(pathinfo($item, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowed, true)) {
+            continue;
+        }
+
+        $files[] = $item;
+    }
+
+    sort($files);
+    return $files;
+}
+
+function list_folders_in_folder(string $dir): array
+{
+    if (!is_dir($dir)) {
+        return [];
+    }
+
+    $items = scandir($dir);
+    if ($items === false) {
+        return [];
+    }
+
+    $folders = [];
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+
+        if (is_dir($dir . '/' . $item)) {
+            $folders[] = $item;
+        }
+    }
+
+    sort($folders);
+    return $folders;
+}
+
 function build_api_path(): string
 {
     $uri = $_SERVER['REQUEST_URI'] ?? '/';
@@ -153,7 +217,40 @@ if (!is_dir($baseDir)) {
 $apiPath = build_api_path();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
-if ($method !== 'POST') {
+if (($method === 'GET' || $method === 'HEAD') && $apiPath === '/files/raw') {
+    $relative = normalize_relative_path((string)($_GET['path'] ?? ''));
+    if ($relative === '') {
+        http_response_code(400);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'path requerido';
+        exit;
+    }
+
+    $target = full_path($baseDir, $relative);
+    if (!is_file($target) || !ensure_inside_base($baseDir, $target)) {
+        http_response_code(404);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'archivo no encontrado';
+        exit;
+    }
+
+    $ext = strtolower(pathinfo($target, PATHINFO_EXTENSION));
+    $contentType = match ($ext) {
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'jpg', 'jpeg' => 'image/jpeg',
+        default => 'application/octet-stream',
+    };
+
+    header('Content-Type: ' . $contentType);
+    header('Cache-Control: public, max-age=300');
+    if ($method !== 'HEAD') {
+        readfile($target);
+    }
+    exit;
+}
+
+if ($method !== 'POST' && $method !== 'GET') {
     respond(405, ['ok' => false, 'error' => 'Metodo no permitido']);
 }
 
@@ -178,6 +275,23 @@ if ($apiPath === '/folders/create') {
     }
 
     respond(200, ['ok' => true]);
+}
+
+if ($apiPath === '/folders/list') {
+    $body = $method === 'POST' ? read_json_body() : [];
+    $relative = normalize_relative_path((string)($body['path'] ?? ($_GET['path'] ?? '')));
+
+    $target = $relative === '' ? $baseDir : full_path($baseDir, $relative);
+    if (!is_dir($target)) {
+        respond(200, ['ok' => true, 'folders' => []]);
+    }
+
+    if (!ensure_inside_base($baseDir, $target)) {
+        respond(403, ['ok' => false, 'error' => 'Ruta invalida']);
+    }
+
+    $folders = list_folders_in_folder($target);
+    respond(200, ['ok' => true, 'folders' => $folders]);
 }
 
 if ($apiPath === '/folders/rename') {
@@ -273,6 +387,27 @@ if ($apiPath === '/files/upload') {
     }
 
     respond(200, ['ok' => true]);
+}
+
+if ($apiPath === '/files/list') {
+    $body = $method === 'POST' ? read_json_body() : [];
+    $relative = normalize_relative_path((string)($body['path'] ?? ($_GET['path'] ?? '')));
+
+    if ($relative === '') {
+        respond(400, ['ok' => false, 'error' => 'path requerido']);
+    }
+
+    $target = full_path($baseDir, $relative);
+    if (!is_dir($target)) {
+        respond(200, ['ok' => true, 'files' => []]);
+    }
+
+    if (!ensure_inside_base($baseDir, $target)) {
+        respond(403, ['ok' => false, 'error' => 'Ruta invalida']);
+    }
+
+    $files = list_images_in_folder($target);
+    respond(200, ['ok' => true, 'files' => $files]);
 }
 
 if ($apiPath === '/files/rename') {

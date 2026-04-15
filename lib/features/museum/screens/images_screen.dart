@@ -45,6 +45,28 @@ class _ImagesScreenState extends State<ImagesScreen> {
 
   static const Color _primaryColor = Color(0xFF2E7D9A);
   static const Color _darkColor = Color(0xFF1A2B4A);
+  static const List<Color> _dynamicFolderColors = [
+    Color(0xFF8B4513),
+    Color(0xFF1B5E75),
+    Color(0xFF2D5016),
+    Color(0xFFC32F27),
+    Color(0xFF7B5EA7),
+    Color(0xFF1A2B4A),
+    Color(0xFF2E7D9A),
+    Color(0xFF5B6FA0),
+    Color(0xFF1B9E8A),
+    Color(0xFFC9961A),
+    Color(0xFF5A3A5A),
+    Color(0xFF2C5282),
+  ];
+
+  Color _colorForFolder(String folderPath) {
+    final key = folderPath.trim().toLowerCase();
+    if (key.isEmpty) return const Color(0xFF44617B);
+
+    final index = key.hashCode.abs() % _dynamicFolderColors.length;
+    return _dynamicFolderColors[index];
+  }
 
   @override
   void initState() {
@@ -66,6 +88,14 @@ class _ImagesScreenState extends State<ImagesScreen> {
       for (final item in _collections) item['path'] as String,
     };
     final discovered = <Map<String, dynamic>>[];
+
+    final fromApi = await _loadServerCollectionsFromApi();
+    for (final folder in fromApi) {
+      final folderPath = (folder['path'] ?? '').toString();
+      if (folderPath.isEmpty || seen.contains(folderPath)) continue;
+      seen.add(folderPath);
+      discovered.add(folder);
+    }
 
     for (final baseUrl in _galleryBaseUrls) {
       try {
@@ -89,7 +119,7 @@ class _ImagesScreenState extends State<ImagesScreen> {
               'title': folder,
               'path': folder,
               'icon': Icons.folder,
-              'color': const Color(0xFF44617B),
+              'color': _colorForFolder(folder),
             },
           );
         }
@@ -102,6 +132,64 @@ class _ImagesScreenState extends State<ImagesScreen> {
     setState(() {
       _collections.addAll(discovered);
     });
+  }
+
+  Future<List<Map<String, dynamic>>> _loadServerCollectionsFromApi() async {
+    final headers = {
+      ..._serverAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+
+    for (final apiBase in _galleryApiBaseUrls) {
+      final cleanBase = apiBase.endsWith('/')
+          ? apiBase.substring(0, apiBase.length - 1)
+          : apiBase;
+      final uri = Uri.parse('$cleanBase/folders/list');
+
+      try {
+        var response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode({'path': ''}),
+        );
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          final getUri = Uri.parse('$cleanBase/folders/list?path=');
+          response = await http.get(getUri, headers: _serverAuthHeaders());
+        }
+
+        if (response.statusCode < 200 || response.statusCode >= 300) continue;
+
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) continue;
+        final foldersRaw = decoded['folders'];
+        if (foldersRaw is! List) continue;
+
+        final folders = foldersRaw
+            .whereType<String>()
+            .where((folder) => folder.trim().isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
+        if (folders.isEmpty) continue;
+
+        return folders
+            .map(
+              (folder) => {
+                'title': folder,
+                'path': folder,
+                'icon': Icons.folder,
+                'color': _colorForFolder(folder),
+              },
+            )
+            .toList();
+      } catch (_) {
+        // Intentar con siguiente API base.
+      }
+    }
+
+    return const [];
   }
 
   Future<String?> _promptText({
@@ -253,7 +341,7 @@ class _ImagesScreenState extends State<ImagesScreen> {
             'title': name,
             'path': path,
             'icon': Icons.folder,
-            'color': const Color(0xFF44617B),
+            'color': _colorForFolder(path),
           },
         );
       }
@@ -878,6 +966,7 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
   bool _isAdmin = false;
   bool _isProcessing = false;
   String? _loadError;
+  int _imageVersion = 0;
 
   @override
   void initState() {
@@ -902,10 +991,21 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     setState(() {
       _isLoading = true;
       _loadError = null;
+      _imageVersion = DateTime.now().millisecondsSinceEpoch;
       _images.clear();
     });
 
     try {
+      final fromApi = await _loadImagesFromApi();
+      if (fromApi.isNotEmpty) {
+        if (!mounted) return;
+        setState(() {
+          _images.addAll(fromApi);
+          _isLoading = false;
+        });
+        return;
+      }
+
       final fromHttpGallery = await _loadImagesFromHttpGallery();
       if (fromHttpGallery.isNotEmpty) {
         if (!mounted) return;
@@ -941,6 +1041,68 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
             'No se pudieron cargar las imágenes. Revisa conexión y permisos de Storage.';
       });
     }
+  }
+
+  Future<List<_GalleryImageItem>> _loadImagesFromApi() async {
+    final headers = {
+      ..._serverAuthHeaders(),
+      'Content-Type': 'application/json',
+    };
+
+    for (final apiBase in _galleryApiBaseUrls) {
+      final cleanBase = apiBase.endsWith('/')
+          ? apiBase.substring(0, apiBase.length - 1)
+          : apiBase;
+      final uri = Uri.parse('$cleanBase/files/list');
+
+      try {
+        var response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode({'path': widget.folderPath}),
+        );
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          final encodedPath = Uri.encodeQueryComponent(widget.folderPath);
+          final getUri = Uri.parse('$cleanBase/files/list?path=$encodedPath');
+          response = await http.get(getUri, headers: _serverAuthHeaders());
+        }
+
+        if (response.statusCode < 200 || response.statusCode >= 300) continue;
+
+        final decoded = jsonDecode(response.body);
+        if (decoded is! Map<String, dynamic>) continue;
+        final filesRaw = decoded['files'];
+        if (filesRaw is! List) continue;
+
+        final files = filesRaw
+            .whereType<String>()
+            .where(_isImagePath)
+            .toList()
+          ..sort();
+
+        if (files.isEmpty) continue;
+
+        return files
+            .map((fileName) {
+              final objectPath = '${widget.folderPath}/$fileName';
+              final candidates = _apiImageUrlCandidates(
+                objectPath,
+                cacheVersion: _imageVersion,
+              );
+              return _GalleryImageItem(
+                path: candidates.first,
+                isAsset: false,
+                objectPath: objectPath,
+              );
+            })
+            .toList();
+      } catch (_) {
+        // Sigue con siguiente API base.
+      }
+    }
+
+    return const [];
   }
 
   Future<List<_GalleryImageItem>> _loadImagesFromHttpGallery() async {
@@ -1047,13 +1209,34 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
       for (final match in hrefRegex.allMatches(html)) {
         final href = match.group(1);
         if (href == null || href.isEmpty) continue;
-        if (href.startsWith('?') || href.startsWith('/') || href == '../') {
+        if (href.startsWith('?') || href == '../') {
+          continue;
+        }
+
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          final uri = Uri.tryParse(href);
+          if (uri == null || uri.pathSegments.isEmpty) continue;
+          final fileName = Uri.decodeComponent(uri.pathSegments.last);
+          if (_isImagePath(fileName)) {
+            imageNames.add(fileName);
+          }
+          continue;
+        }
+
+        if (href.startsWith('/')) {
+          final uri = Uri.tryParse(href);
+          if (uri == null || uri.pathSegments.isEmpty) continue;
+          final fileName = Uri.decodeComponent(uri.pathSegments.last);
+          if (_isImagePath(fileName)) {
+            imageNames.add(fileName);
+          }
           continue;
         }
 
         final decodedName = Uri.decodeComponent(href);
-        if (!_isImagePath(decodedName)) continue;
-        imageNames.add(decodedName);
+        if (_isImagePath(decodedName)) {
+          imageNames.add(decodedName);
+        }
       }
 
       if (imageNames.isEmpty) return const [];
@@ -1124,6 +1307,50 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     }
 
     return null;
+  }
+
+  List<String> _publicUrlCandidates(String objectPath, {int? cacheVersion}) {
+    final encodedPath = objectPath
+        .split('/')
+        .where((part) => part.trim().isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
+
+    final prioritizedBaseUrls = [..._galleryBaseUrls]
+      ..sort((a, b) {
+        final aScore = a.toLowerCase().contains('galeria') ? 0 : 1;
+        final bScore = b.toLowerCase().contains('galeria') ? 0 : 1;
+        return aScore.compareTo(bScore);
+      });
+
+    return prioritizedBaseUrls.map((baseUrl) {
+      final cleanBase = baseUrl.endsWith('/')
+          ? baseUrl.substring(0, baseUrl.length - 1)
+          : baseUrl;
+      final versionQuery = cacheVersion == null ? '' : '?v=$cacheVersion';
+      return '$cleanBase/$encodedPath$versionQuery';
+    }).toList();
+  }
+
+  List<String> _apiImageUrlCandidates(String objectPath, {int? cacheVersion}) {
+    final encodedObjectPath = objectPath
+        .split('/')
+        .where((part) => part.trim().isNotEmpty)
+        .map(Uri.encodeComponent)
+        .join('/');
+
+    final apiUrls = _galleryApiBaseUrls.map((apiBase) {
+      final cleanBase = apiBase.endsWith('/')
+          ? apiBase.substring(0, apiBase.length - 1)
+          : apiBase;
+      final versionQuery = cacheVersion == null ? '' : '&v=$cacheVersion';
+      return '$cleanBase/files/raw?path=$encodedObjectPath$versionQuery';
+    }).toList();
+
+    return [
+      ...apiUrls,
+      ..._publicUrlCandidates(objectPath, cacheVersion: cacheVersion),
+    ];
   }
 
   Uri _buildEncodedServerUri(String baseUrl, String objectPath) {
@@ -1262,97 +1489,9 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     }
   }
 
-  Future<String?> _promptText({
-    required String title,
-    required String hint,
-    String? initialValue,
-    String confirmLabel = 'Guardar',
-  }) async {
-    final controller = TextEditingController(text: initialValue ?? '');
-    final value = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: hint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
-    );
-
-    return value?.trim();
-  }
-
-  String _safeObjectName(String value) {
-    return value
-        .trim()
-        .replaceAll(RegExp(r'\\+'), '-')
-        .replaceAll(RegExp(r'/+'), '-')
-        .replaceAll(RegExp(r'\s+'), '_');
-  }
-
   String _basename(String path) {
     final parts = path.split('/');
     return parts.isEmpty ? path : parts.last;
-  }
-
-  String _fileNameWithoutExtension(String fileName) {
-    final dot = fileName.lastIndexOf('.');
-    if (dot <= 0) return fileName;
-    return fileName.substring(0, dot);
-  }
-
-  Future<void> _createFolder() async {
-    if (!_isAdmin || _isProcessing) return;
-
-    final folderName = await _promptText(
-      title: 'Crear carpeta',
-      hint: 'Nombre de la nueva carpeta',
-      confirmLabel: 'Crear',
-    );
-    if (folderName == null || folderName.isEmpty) return;
-
-    final cleanFolder = _safeObjectName(folderName);
-    if (cleanFolder.isEmpty) {
-      _showGalleryMessage('Nombre de carpeta inválido.', isError: true);
-      return;
-    }
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    final created =
-        await _tryApiJsonAction(
-          endpoint: 'folders/create',
-          payload: {'path': '${widget.folderPath}/$cleanFolder'},
-        ) ||
-        await _writeToServer(
-          method: 'MKCOL',
-          objectPath: '${widget.folderPath}/$cleanFolder/',
-        );
-
-    if (created) {
-      _showGalleryMessage('Carpeta creada correctamente.');
-    } else {
-      _showGalleryMessage('No se pudo crear la carpeta en el servidor.', isError: true);
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _isProcessing = false;
-    });
   }
 
   void _showGalleryMessage(String message, {bool isError = false}) {
@@ -1400,65 +1539,6 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
       extension: extension,
       successMessage: 'Imagen reemplazada correctamente.',
     );
-  }
-
-  Future<void> _renameImage(_GalleryImageItem item) async {
-    if (!_isAdmin || _isProcessing || !item.canBeManaged) return;
-
-    final currentPath = item.objectPath!;
-    final currentName = _basename(currentPath);
-    final currentBaseName = _fileNameWithoutExtension(currentName);
-    final currentExt = _fileExtension(currentName);
-
-    final requested = await _promptText(
-      title: 'Renombrar foto',
-      hint: 'Nuevo nombre de la foto',
-      initialValue: currentBaseName,
-      confirmLabel: 'Renombrar',
-    );
-    if (requested == null || requested.isEmpty) return;
-
-    var cleanName = _safeObjectName(requested);
-    if (cleanName.isEmpty) {
-      _showGalleryMessage('Nombre inválido.', isError: true);
-      return;
-    }
-    if (!cleanName.toLowerCase().endsWith('.$currentExt')) {
-      cleanName = '$cleanName.$currentExt';
-    }
-
-    final folderPrefix = currentPath.contains('/')
-        ? currentPath.substring(0, currentPath.lastIndexOf('/'))
-        : widget.folderPath;
-    final newPath = '$folderPrefix/$cleanName';
-    if (newPath == currentPath) return;
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    final moved =
-        await _tryApiJsonAction(
-          endpoint: 'files/rename',
-          payload: {'from': currentPath, 'to': newPath},
-        ) ||
-        await _writeToServer(
-          method: 'MOVE',
-          objectPath: currentPath,
-          destinationPath: newPath,
-        );
-
-    if (moved) {
-      _showGalleryMessage('Foto renombrada correctamente.');
-      await _loadImages();
-    } else {
-      _showGalleryMessage('No se pudo renombrar la foto en el servidor.', isError: true);
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _isProcessing = false;
-    });
   }
 
   Future<void> _uploadToStorage({
@@ -1641,7 +1721,7 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
                           ),
                     if (_isAdmin && item.canBeManaged)
                       Positioned(
-                        top: 8,
+                        bottom: 8,
                         right: 8,
                         child: Container(
                           decoration: BoxDecoration(
@@ -1652,27 +1732,18 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
                             enabled: !_isProcessing,
                             icon: const Icon(Icons.more_vert, color: Colors.white),
                             onSelected: (value) {
-                              if (value == 'edit') {
+                              if (value == 'replace') {
                                 _replaceImage(item);
-                              } else if (value == 'rename') {
-                                _renameImage(item);
                               } else if (value == 'delete') {
                                 _deleteImage(item);
                               }
                             },
                             itemBuilder: (_) => const [
                               PopupMenuItem<String>(
-                                value: 'edit',
+                                value: 'replace',
                                 child: ListTile(
                                   leading: Icon(Icons.edit_rounded),
                                   title: Text('Reemplazar'),
-                                ),
-                              ),
-                              PopupMenuItem<String>(
-                                value: 'rename',
-                                child: ListTile(
-                                  leading: Icon(Icons.drive_file_rename_outline_rounded),
-                                  title: Text('Renombrar'),
                                 ),
                               ),
                               PopupMenuItem<String>(
@@ -1714,8 +1785,6 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
               onSelected: (value) {
                 if (value == 'upload') {
                   _uploadImage();
-                } else if (value == 'folder') {
-                  _createFolder();
                 }
               },
               itemBuilder: (_) => const [
@@ -1724,13 +1793,6 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
                   child: ListTile(
                     leading: Icon(Icons.add_photo_alternate_rounded),
                     title: Text('Subir imagen'),
-                  ),
-                ),
-                PopupMenuItem<String>(
-                  value: 'folder',
-                  child: ListTile(
-                    leading: Icon(Icons.create_new_folder_rounded),
-                    title: Text('Crear carpeta'),
                   ),
                 ),
               ],
