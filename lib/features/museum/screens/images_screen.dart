@@ -804,6 +804,7 @@ class _FolderCard extends StatelessWidget {
             ],
           ),
           child: Container(
+            height: 130,
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
