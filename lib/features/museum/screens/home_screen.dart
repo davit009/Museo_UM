@@ -619,7 +619,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     onTap: () {
                       Navigator.pop(context); // Cerrar el drawer
-                      _goToPage(index); // Navegar a la página correspondiente en el carrusel
+                      // Actualizar el carrusel de fondo silenciosamente
+                      _pageController.jumpToPage(index);
+                      
+                      // Ir directamente a la pantalla correspondiente
+                      Navigator.push(
+                        context,
+                        PageRouteBuilder(
+                          pageBuilder: (context, animation, secondaryAnimation) => section.screen,
+                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                            return SlideTransition(
+                              position: Tween<Offset>(begin: const Offset(0.0, 1.0), end: Offset.zero)
+                                  .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                              child: child,
+                            );
+                          },
+                          transitionDuration: const Duration(milliseconds: 400),
+                        ),
+                      );
                     },
                   );
                 },
@@ -792,10 +809,41 @@ class _HomeScreenState extends State<HomeScreen> {
                   duration: const Duration(milliseconds: 350),
                   curve: Curves.easeOut,
                   child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => section.screen),
-                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        PageRouteBuilder(
+                          pageBuilder: (context, animation, secondaryAnimation) => section.screen,
+                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                            return SlideTransition(
+                              position: Tween<Offset>(begin: const Offset(0.0, 1.0), end: Offset.zero)
+                                  .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                              child: child,
+                            );
+                          },
+                          transitionDuration: const Duration(milliseconds: 400),
+                        ),
+                      );
+                    },
+                    onVerticalDragEnd: (details) {
+                      // Detect swipe up
+                      if (details.primaryVelocity != null && details.primaryVelocity! < -100) {
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) => section.screen,
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              return SlideTransition(
+                                position: Tween<Offset>(begin: const Offset(0.0, 1.0), end: Offset.zero)
+                                    .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                                child: child,
+                              );
+                            },
+                            transitionDuration: const Duration(milliseconds: 400),
+                          ),
+                        );
+                      }
+                    },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
