@@ -1035,12 +1035,13 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
         if (fromSupabase != null) _images.addAll(fromSupabase.images);
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (e, stack) {
       if (!mounted) return;
+      debugPrint('Error en _loadImages: $e\\n$stack');
       setState(() {
         _isLoading = false;
         _loadError =
-            'No se pudieron cargar las imágenes. Revisa conexión y permisos de Storage.';
+            'Error interno: $e\\nRevisa conexión y permisos de Storage.';
       });
     }
   }
@@ -1108,27 +1109,31 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
   }
 
   Future<List<_GalleryImageItem>> _loadImagesFromHttpGallery() async {
-    final aliases = _folderAliases(widget.folderPath);
+    try {
+      final aliases = _folderAliases(widget.folderPath);
 
-    for (final baseUrl in _galleryBaseUrls) {
-      for (final alias in aliases) {
-        final imageUrls = await _tryReadApacheIndex(baseUrl, alias);
-        if (imageUrls.isNotEmpty) {
-          return imageUrls
-              .map((url) {
-                final uri = Uri.parse(url);
-                final fileName = uri.pathSegments.isNotEmpty
-                    ? Uri.decodeComponent(uri.pathSegments.last)
-                    : 'imagen.jpg';
-                return _GalleryImageItem(
-                  path: url,
-                  isAsset: false,
-                  objectPath: '$alias/$fileName',
-                );
-              })
-              .toList();
+      for (final baseUrl in _galleryBaseUrls) {
+        for (final alias in aliases) {
+          final imageUrls = await _tryReadApacheIndex(baseUrl, alias);
+          if (imageUrls.isNotEmpty) {
+            return imageUrls
+                .map((url) {
+                  final uri = Uri.parse(url);
+                  final fileName = uri.pathSegments.isNotEmpty
+                      ? uri.pathSegments.last // pathSegments ya vienen decodificados
+                      : 'imagen.jpg';
+                  return _GalleryImageItem(
+                    path: url,
+                    isAsset: false,
+                    objectPath: '$alias/$fileName',
+                  );
+                })
+                .toList();
+          }
         }
       }
+    } catch (e, stack) {
+      debugPrint('Error en _loadImagesFromHttpGallery: $e\\n$stack');
     }
 
     return const [];
@@ -1509,9 +1514,10 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
   Future<String?> _promptText({
     required String title,
     required String hint,
+    String? initialValue,
     String confirmLabel = 'Aceptar',
   }) async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: initialValue ?? '');
     final value = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1686,6 +1692,61 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     setState(() {
       _isProcessing = false;
     });
+  }
+
+  Future<void> _editDescription(_GalleryImageItem item) async {
+    if (!_isAdmin || !item.canBeManaged) return;
+    
+    setState(() => _isProcessing = true);
+    
+    String currentDescription = '';
+    try {
+      final res = await Supabase.instance.client
+          .from('gallery_metadata')
+          .select('description')
+          .eq('image_path', item.objectPath!)
+          .maybeSingle();
+      if (res != null) {
+        currentDescription = res['description'] as String;
+      }
+    } catch (_) {}
+
+    setState(() => _isProcessing = false);
+
+    final newDescription = await _promptText(
+      title: 'Editar descripción',
+      hint: 'Escribe el contexto o descripción de la foto',
+      initialValue: currentDescription,
+      confirmLabel: 'Guardar',
+    );
+
+    if (newDescription == null) return;
+
+    setState(() => _isProcessing = true);
+
+    if (newDescription.trim().isEmpty) {
+      try {
+        await Supabase.instance.client
+            .from('gallery_metadata')
+            .delete()
+            .eq('image_path', item.objectPath!);
+        _showGalleryMessage('Descripción eliminada');
+      } catch (_) {
+        _showGalleryMessage('No se pudo eliminar la descripción', isError: true);
+      }
+    } else {
+      try {
+        await Supabase.instance.client.from('gallery_metadata').upsert({
+          'image_path': item.objectPath!,
+          'description': newDescription.trim(),
+        });
+        _showGalleryMessage('Descripción guardada correctamente');
+      } catch (_) {
+        _showGalleryMessage('No se pudo guardar la descripción', isError: true);
+      }
+    }
+
+    setState(() => _isProcessing = false);
   }
 
   bool _isImagePath(String value) {
@@ -1914,7 +1975,9 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
                                           enabled: !_isProcessing,
                                           icon: const Icon(Icons.more_vert, color: Colors.white),
                                           onSelected: (value) {
-                                            if (value == 'replace') {
+                                            if (value == 'edit_desc') {
+                                              _editDescription(item);
+                                            } else if (value == 'replace') {
                                               _replaceImage(item);
                                             } else if (value == 'delete') {
                                               _deleteImage(item);
@@ -1922,17 +1985,24 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
                                           },
                                           itemBuilder: (_) => const [
                                             PopupMenuItem<String>(
+                                              value: 'edit_desc',
+                                              child: ListTile(
+                                                leading: Icon(Icons.description_rounded),
+                                                title: Text('Editar descripción'),
+                                              ),
+                                            ),
+                                            PopupMenuItem<String>(
                                               value: 'replace',
                                               child: ListTile(
                                                 leading: Icon(Icons.edit_rounded),
-                                                title: Text('Reemplazar'),
+                                                title: Text('Reemplazar foto'),
                                               ),
                                             ),
                                             PopupMenuItem<String>(
                                               value: 'delete',
                                               child: ListTile(
                                                 leading: Icon(Icons.delete_rounded, color: Colors.red),
-                                                title: Text('Eliminar'),
+                                                title: Text('Eliminar foto'),
                                               ),
                                             ),
                                           ],
