@@ -92,29 +92,7 @@ class IntroHistoriaScreen extends StatelessWidget {
               color: _darkNavy,
             ),
             const SizedBox(height: 24),
-            _SectionTitle('Personajes Clave en Nuestra Historia', _darkNavy),
-            const SizedBox(height: 12),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.85,
-              ),
-              itemCount: _importantPeople.length,
-              itemBuilder: (context, index) {
-                final person = _importantPeople[index];
-                return _PersonCard(
-                  name: person['name']!,
-                  role: person['role']!,
-                  imageUrl: person['imageUrl']!,
-                  color: (index % 2 == 0) ? _teal : _darkNavy,
-                );
-              },
-            ),
-            const SizedBox(height: 24),
+
           ],
         ),
       ),
@@ -122,14 +100,7 @@ class IntroHistoriaScreen extends StatelessWidget {
   }
 }
 
-final List<Map<String, String>> _importantPeople = List.generate(
-  20,
-  (i) => {
-    'name': 'Nombre ${i + 1}',
-    'role': 'Pionero / Colaborador',
-    'imageUrl': 'https://picsum.photos/200/200?random=$i',
-  },
-);
+
 
 class _HeroCard extends StatelessWidget {
   final IconData icon;
@@ -374,69 +345,4 @@ class _MisionCard extends StatelessWidget {
   }
 }
 
-class _PersonCard extends StatelessWidget {
-  final String name;
-  final String role;
-  final String imageUrl;
-  final Color color;
 
-  const _PersonCard({
-    required this.name,
-    required this.role,
-    required this.imageUrl,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shadowColor: color.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-                border: Border.all(color: color.withValues(alpha: 0.2), width: 2),
-                image: DecorationImage(
-                  image: NetworkImage(imageUrl),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              name,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: color,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              role,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

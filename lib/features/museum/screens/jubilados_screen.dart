@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class JubiladosScreen extends StatelessWidget {
   const JubiladosScreen({super.key});
@@ -73,17 +74,15 @@ class _JubiladoPhotoCard extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            imageUrl,
+          CachedNetworkImage(
+            imageUrl: imageUrl,
             fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                color: Colors.grey[200],
-                child: const Center(child: CircularProgressIndicator()),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) => Container(
+            memCacheWidth: 400, // Carga la imagen a un tamaño razonable en memoria para no colapsar la app
+            placeholder: (context, url) => Container(
+              color: Colors.grey[200],
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+            errorWidget: (context, url, error) => Container(
               color: Colors.grey[300],
               child: const Icon(Icons.person, size: 50, color: Colors.grey),
             ),

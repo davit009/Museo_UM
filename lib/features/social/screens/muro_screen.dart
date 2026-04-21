@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/gestures.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:museo_app/features/social/services/muro_service.dart';
 import 'package:museo_app/features/social/services/social_service.dart';
 import 'package:museo_app/features/auth/screens/login_screen.dart';
@@ -644,7 +645,13 @@ class _MuroScreenState extends State<MuroScreen> {
           border: Border.all(color: Colors.grey.shade200),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Image.network(urls[0], fit: BoxFit.cover),
+        child: CachedNetworkImage(
+          imageUrl: urls[0],
+          fit: BoxFit.cover,
+          memCacheWidth: 800,
+          placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+          errorWidget: (context, url, error) => const Icon(Icons.error),
+        ),
       );
     }
     
@@ -663,7 +670,13 @@ class _MuroScreenState extends State<MuroScreen> {
               border: Border.all(color: Colors.grey.shade200),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Image.network(urls[index], fit: BoxFit.cover),
+            child: CachedNetworkImage(
+              imageUrl: urls[index],
+              fit: BoxFit.cover,
+              memCacheWidth: 400,
+              placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+              errorWidget: (context, url, error) => const Icon(Icons.error),
+            ),
           );
         },
       ),
