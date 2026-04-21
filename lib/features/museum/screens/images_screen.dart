@@ -1506,11 +1506,50 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
     );
   }
 
+  Future<String?> _promptText({
+    required String title,
+    required String hint,
+    String confirmLabel = 'Aceptar',
+  }) async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hint),
+          maxLines: 3,
+          minLines: 1,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return value?.trim();
+  }
+
   Future<void> _uploadImage() async {
     if (!_isAdmin || _isProcessing) return;
 
     final file = await _pickImageFromGallery();
     if (file == null) return;
+
+    final description = await _promptText(
+      title: 'Descripción de la imagen',
+      hint: 'Opcional: Añade un texto o contexto a esta foto...',
+      confirmLabel: 'Subir foto',
+    );
+    if (description == null) return; // El usuario canceló
 
     final extension = _fileExtension(file.name);
     final fileName = 'img_${DateTime.now().millisecondsSinceEpoch}.$extension';
@@ -1523,6 +1562,17 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
       extension: extension,
       successMessage: 'Imagen subida correctamente al servidor.',
     );
+
+    if (description.isNotEmpty) {
+      try {
+        await Supabase.instance.client.from('gallery_metadata').insert({
+          'image_path': objectPath,
+          'description': description,
+        });
+      } catch (e) {
+        debugPrint('Error al guardar la descripción en Supabase: $e');
+      }
+    }
   }
 
   Future<void> _replaceImage(_GalleryImageItem item) async {
@@ -1624,6 +1674,9 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
 
     if (deleted) {
       _showGalleryMessage('Imagen eliminada correctamente.');
+      try {
+        await Supabase.instance.client.from('gallery_metadata').delete().eq('image_path', item.objectPath!);
+      } catch (_) {}
       await _loadImages();
     } else {
       _showGalleryMessage('No se pudo eliminar la imagen en el servidor.', isError: true);
@@ -2035,6 +2088,20 @@ class _GalleryPreviewScreen extends StatelessWidget {
     required this.color,
   });
 
+  Future<String?> _fetchDescription() async {
+    if (item.objectPath == null) return null;
+    try {
+      final res = await Supabase.instance.client
+          .from('gallery_metadata')
+          .select('description')
+          .eq('image_path', item.objectPath!)
+          .maybeSingle();
+      return res?['description'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -2044,14 +2111,46 @@ class _GalleryPreviewScreen extends StatelessWidget {
         title: Text(title),
         foregroundColor: Colors.white,
       ),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.8,
-          maxScale: 5,
-          child: item.isAsset
-              ? Image.asset(item.path, fit: BoxFit.contain)
-              : Image.network(item.path, fit: BoxFit.contain),
-        ),
+      body: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5,
+              child: item.isAsset
+                  ? Image.asset(item.path, fit: BoxFit.contain)
+                  : Image.network(item.path, fit: BoxFit.contain),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: FutureBuilder<String?>(
+              future: _fetchDescription(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData || snapshot.data == null || snapshot.data!.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                return Container(
+                  padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+                    ),
+                  ),
+                  child: Text(
+                    snapshot.data!,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5),
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
