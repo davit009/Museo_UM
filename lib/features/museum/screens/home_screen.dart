@@ -612,7 +612,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
-    
+
     _checkAdminStatus();
     
     // Inicializar Push Notifications si el usuario está logueado
@@ -1155,48 +1155,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 18),
-                  // Quick nav: scroll horizontal de secciones
-                  SizedBox(
-                    height: 36,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _sections.length,
-                      itemBuilder: (_, i) {
-                        final s = _sections[i];
-                        final sel = i == _currentPage;
-                        return GestureDetector(
-                          onTap: () => _goToPage(i),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: sel
-                                  ? Colors.white.withValues(alpha: 0.18)
-                                  : Colors.white.withValues(alpha: 0.07),
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: sel
-                                    ? Colors.white.withValues(alpha: 0.55)
-                                    : Colors.white.withValues(alpha: 0.12),
-                              ),
-                            ),
-                            child: Text(
-                              s.titulo,
-                              style: TextStyle(
-                                color: sel
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.45),
-                                fontSize: 12,
-                                fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
                   ),
                 ],
               ),
