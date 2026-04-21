@@ -17,7 +17,7 @@ class MuroScreen extends StatefulWidget {
 }
 
 class _MuroScreenState extends State<MuroScreen> {
-  static const Color _color = Color(0xFFE04E4E);
+  static const Color _color = Color(0xFF1A2B4A);
 
   final _muroService = MuroService();
   final _textController = TextEditingController();
@@ -178,9 +178,29 @@ class _MuroScreenState extends State<MuroScreen> {
 
   Future<void> _reaccionar(int postId, String reactionType) async {
     if (_muroService.currentUser == null) return;
+    final userId = _muroService.currentUser!.id;
+
+    // Actualización optimista: cambia el estado local al instante
+    setState(() {
+      final postIndex = _posts.indexWhere((p) => p['id'] == postId);
+      if (postIndex == -1) return;
+      final post = Map<String, dynamic>.from(_posts[postIndex]);
+      final reactions = List<Map<String, dynamic>>.from(post['post_reactions'] ?? []);
+      // Buscar reacción previa del usuario (cualquier tipo)
+      final existingType = reactions
+          .firstWhere((r) => r['user_id'] == userId, orElse: () => {})['reaction_type'];
+      // Quitar cualquier reacción previa del usuario
+      reactions.removeWhere((r) => r['user_id'] == userId);
+      // Agregar la nueva solo si es distinta a la que ya tenía (si era igual, es toggle off)
+      if (existingType != reactionType) {
+        reactions.add({'reaction_type': reactionType, 'user_id': userId});
+      }
+      post['post_reactions'] = reactions;
+      _posts[postIndex] = post;
+    });
+
     try {
       await _muroService.toggleReaction(postId, reactionType);
-      await _loadPosts();
     } catch (_) {}
   }
 
@@ -262,6 +282,26 @@ class _MuroScreenState extends State<MuroScreen> {
         );
       }
     }
+  }
+
+  Color _categoryColor(String cat) {
+    switch (cat) {
+      case 'Duda': return const Color(0xFFED6C02);
+      case 'Aviso': return const Color(0xFF00838F);
+      case 'Empleo': return const Color(0xFF2E7D32);
+      case 'Proyecto': return const Color(0xFF6A1B9A);
+      default: return const Color(0xFF1565C0);
+    }
+  }
+
+  Color _avatarColor(String name) {
+    const colors = [
+      Color(0xFF1A2B4A), Color(0xFF1B9E8A), Color(0xFF1565C0),
+      Color(0xFF6A1B9A), Color(0xFFED6C02), Color(0xFF2E7D32),
+      Color(0xFFC62828), Color(0xFF00838F),
+    ];
+    if (name.isEmpty) return colors[0];
+    return colors[name.codeUnitAt(0) % colors.length];
   }
 
   String _formatFecha(String isoDate) {
@@ -676,7 +716,7 @@ class _MuroScreenState extends State<MuroScreen> {
     final estaLogueado = currentUserId != null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4F8),
+      backgroundColor: const Color(0xFFF1F3F5),
       appBar: AppBar(
         backgroundColor: _color,
         title: const Text('Comunidad UM'),
@@ -691,40 +731,16 @@ class _MuroScreenState extends State<MuroScreen> {
       ),
       body: Column(
         children: [
-          // ── Banner ──
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFE04E4E), Color(0xFF9B1A1A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: const Row(
+            color: const Color(0xFF1A2B4A),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
               children: [
-                Icon(Icons.forum, color: Colors.white, size: 36),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Comunidad',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Comparte, conecta y descubre con tu universidad',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ],
-                  ),
+                const Icon(Icons.people_alt_rounded, color: Colors.white54, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  '${_filteredPosts.length} publicaciones en la red universitaria',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
               ],
             ),
@@ -752,7 +768,7 @@ class _MuroScreenState extends State<MuroScreen> {
                                     child: ChoiceChip(
                                       label: Text(cat, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.grey.shade700)),
                                       selected: isSelected,
-                                      selectedColor: const Color(0xFFE04E4E),
+                                      selectedColor: const Color(0xFF1A2B4A),
                                       backgroundColor: Colors.grey.shade200,
                                       onSelected: (_) => setState(() => _selectedNewPostCategory = cat),
                                     ),
@@ -769,7 +785,7 @@ class _MuroScreenState extends State<MuroScreen> {
                         children: [
                           const CircleAvatar(
                             radius: 20,
-                            backgroundColor: Color(0xFFE04E4E),
+                            backgroundColor: Color(0xFF1A2B4A),
                             child: Icon(Icons.person, color: Colors.white, size: 22),
                           ),
                           const SizedBox(width: 10),
@@ -875,71 +891,84 @@ class _MuroScreenState extends State<MuroScreen> {
                   ),
           ),
 
-          if (estaLogueado && _myProfile != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  const Icon(Icons.filter_list, color: Color(0xFF1A2B4A), size: 20),
-                  const SizedBox(width: 8),
-                  const Text('Filtros:', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1A2B4A), fontSize: 13)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: _currentFilter,
-                          icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
-                          onChanged: (val) {
-                            if (val != null) setState(() => _currentFilter = val);
-                          },
-                          items: ['Todos', 'Mi Carrera', 'Mi Generación'].map((f) {
-                            return DropdownMenuItem(value: f, child: Text(f, overflow: TextOverflow.ellipsis));
-                          }).toList(),
-                        ),
-                      ),
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (estaLogueado && _myProfile != null) ...[
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: ['Todos', 'Mi Carrera', 'Mi Generación'].map((f) {
+                        final isSelected = _currentFilter == f;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _currentFilter = f),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFF1A2B4A) : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                f,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: _currentCategoryFilter,
-                          icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade800, fontWeight: FontWeight.w600),
-                          onChanged: (val) {
-                            if (val != null) setState(() => _currentCategoryFilter = val);
-                          },
-                          items: _categorias.map((c) {
-                            return DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis));
-                          }).toList(),
-                        ),
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 8),
                 ],
-              ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _categorias.map((c) {
+                      final isSelected = _currentCategoryFilter == c;
+                      final catColor = c == 'Todas' ? Colors.grey.shade700 : _categoryColor(c);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _currentCategoryFilter = c),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isSelected ? catColor.withValues(alpha: 0.12) : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected ? catColor : Colors.transparent,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Text(
+                              c,
+                              style: TextStyle(
+                                color: isSelected ? catColor : Colors.grey.shade600,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
             ),
-          const Divider(height: 1),
+          ),
+          Divider(color: Colors.grey.shade200, height: 1),
 
           // ── Lista de posts ──
           Expanded(
@@ -969,7 +998,7 @@ class _MuroScreenState extends State<MuroScreen> {
                                   }
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFFE04E4E),
+                                  backgroundColor: const Color(0xFF1A2B4A),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
                                 ),
@@ -982,7 +1011,7 @@ class _MuroScreenState extends State<MuroScreen> {
                     : RefreshIndicator(
                         onRefresh: _loadPosts,
                         child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
                           itemCount: _filteredPosts.length,
                           itemBuilder: (context, index) {
                             final post = _filteredPosts[index];
@@ -1000,24 +1029,31 @@ class _MuroScreenState extends State<MuroScreen> {
                             Widget buildReactionButton(String icon, String type) {
                               final count = reactions.where((r) => r['reaction_type'] == type).length;
                               final iReacted = reactions.any((r) => r['reaction_type'] == type && r['user_id'] == currentUserId);
-                              
+
                               return InkWell(
                                 onTap: estaLogueado ? () => _reaccionar(post['id'], type) : null,
-                                borderRadius: BorderRadius.circular(16),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                borderRadius: BorderRadius.circular(20),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                                   decoration: BoxDecoration(
-                                    color: iReacted ? _color.withValues(alpha: 0.1) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: iReacted ? _color : Colors.grey.shade300)
+                                    color: iReacted ? _color.withValues(alpha: 0.1) : Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(icon, style: const TextStyle(fontSize: 16)),
+                                      Text(icon, style: const TextStyle(fontSize: 18)),
                                       if (count > 0) ...[
-                                        const SizedBox(width: 4),
-                                        Text('$count', style: TextStyle(color: iReacted ? _color : Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 12)),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          '$count',
+                                          style: TextStyle(
+                                            color: iReacted ? _color : Colors.grey.shade600,
+                                            fontWeight: iReacted ? FontWeight.bold : FontWeight.w500,
+                                            fontSize: 12,
+                                          ),
+                                        ),
                                       ]
                                     ],
                                   ),
@@ -1026,15 +1062,20 @@ class _MuroScreenState extends State<MuroScreen> {
                             }
 
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 16),
+                              margin: const EdgeInsets.only(bottom: 10),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(color: Colors.grey.shade200),
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              clipBehavior: Clip.antiAlias,
                               color: Colors.white,
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    left: BorderSide(color: _categoryColor(categoria), width: 4),
+                                  ),
+                                ),
+                                padding: const EdgeInsets.fromLTRB(14, 14, 16, 10),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -1051,25 +1092,25 @@ class _MuroScreenState extends State<MuroScreen> {
                                             clipBehavior: Clip.none,
                                             children: [
                                               CircleAvatar(
-                                                radius: 20,
-                                                backgroundColor: _color.withValues(alpha: 0.1),
+                                                radius: 22,
+                                                backgroundColor: _avatarColor(username),
                                                 child: Text(
                                                   username.isNotEmpty ? username[0].toUpperCase() : 'V',
                                                   style: const TextStyle(
-                                                    color: _color,
+                                                    color: Colors.white,
                                                     fontWeight: FontWeight.bold,
-                                                    fontSize: 16,
+                                                    fontSize: 17,
                                                   ),
                                                 ),
                                               ),
                                               if (esMentor)
                                                 Positioned(
-                                                  bottom: -4,
-                                                  right: -4,
+                                                  bottom: -3,
+                                                  right: -3,
                                                   child: Container(
                                                     padding: const EdgeInsets.all(2),
                                                     decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                                    child: const Icon(Icons.school, size: 14, color: Color(0xFF1B9E8A)),
+                                                    child: const Icon(Icons.school, size: 13, color: Color(0xFF1B9E8A)),
                                                   ),
                                                 )
                                             ],
@@ -1096,22 +1137,32 @@ class _MuroScreenState extends State<MuroScreen> {
                                                 ),
                                                 Row(
                                                   children: [
-                                                    if (carrera.isNotEmpty)
-                                                      Text(
-                                                        carrera,
-                                                        style: TextStyle(
-                                                          color: Colors.grey.shade500,
-                                                          fontSize: 12,
+                                                    if (carrera.isNotEmpty) ...[
+                                                      Flexible(
+                                                        child: Text(
+                                                          carrera,
+                                                          overflow: TextOverflow.ellipsis,
+                                                          style: TextStyle(
+                                                            color: Colors.grey.shade500,
+                                                            fontSize: 12,
+                                                          ),
                                                         ),
                                                       ),
-                                                    if (carrera.isNotEmpty)
-                                                      Text(' • ', style: TextStyle(color: Colors.grey.shade400)),
-                                                    Text(
-                                                      categoria,
-                                                      style: const TextStyle(
-                                                        color: Color(0xFFE04E4E),
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.bold,
+                                                      const SizedBox(width: 6),
+                                                    ],
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: _categoryColor(categoria).withValues(alpha: 0.12),
+                                                        borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      child: Text(
+                                                        categoria,
+                                                        style: TextStyle(
+                                                          color: _categoryColor(categoria),
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
                                                       ),
                                                     ),
                                                   ],
@@ -1202,14 +1253,16 @@ class _MuroScreenState extends State<MuroScreen> {
                                       post['post_mentions'] ?? [],
                                     ),
                                     _buildPostImages(post['image_urls']),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 12),
+                                    Divider(color: Colors.grey.shade100, height: 1),
+                                    const SizedBox(height: 8),
                                     Row(
                                       children: [
-                                        buildReactionButton('💡', 'inspiracion'),
-                                        const SizedBox(width: 8),
-                                        buildReactionButton('🏛️', 'recuerdo'),
-                                        const SizedBox(width: 8),
-                                        buildReactionButton('🎓', 'consejo'),
+                                        buildReactionButton('👍', 'inspiracion'),
+                                        const SizedBox(width: 6),
+                                        buildReactionButton('❤️', 'recuerdo'),
+                                        const SizedBox(width: 6),
+                                        buildReactionButton('🎉', 'consejo'),
                                         const Spacer(),
                                         InkWell(
                                           onTap: () {
@@ -1220,15 +1273,19 @@ class _MuroScreenState extends State<MuroScreen> {
                                               builder: (_) => CommentsBottomSheet(postId: post['id'], muroService: _muroService),
                                             ).then((_) => _loadPosts());
                                           },
-                                          borderRadius: BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(20),
                                           child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade100,
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
                                             child: Row(
                                               children: [
-                                                Icon(Icons.chat_bubble_outline, size: 18, color: Colors.grey.shade600),
+                                                Icon(Icons.chat_bubble_outline, size: 17, color: Colors.grey.shade500),
                                                 if (comentariosCount > 0) ...[
-                                                  const SizedBox(width: 6),
-                                                  Text('$comentariosCount', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 13)),
+                                                  const SizedBox(width: 5),
+                                                  Text('$comentariosCount', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500, fontSize: 12)),
                                                 ]
                                               ],
                                             ),
