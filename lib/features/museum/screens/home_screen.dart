@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:museo_app/features/museum/screens/intro_historia_screen.dart';
 import 'package:museo_app/features/museum/screens/etapas_screen.dart';
 import 'package:museo_app/features/museum/screens/jubilados_screen.dart';
+import 'package:museo_app/features/museum/screens/images_screen.dart';
 import 'package:museo_app/features/museum/screens/musica_screen.dart';
 import 'package:museo_app/features/museum/screens/datos_curiosos_screen.dart';
 import 'package:museo_app/features/museum/screens/informacion_screen.dart';
@@ -26,14 +27,15 @@ class _SectionArtPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     switch (index) {
-      case 0: { _historia(canvas, size); break; }
-      case 1: { _etapas(canvas, size);   break; }
-      case 2: { _jubilados(canvas, size); break; }
-      case 3: { _musica(canvas, size);   break; }
-      case 4: { _curiosos(canvas, size); break; }
-      case 5: { _informacion(canvas, size); break; }
-      case 6: { _comoLlegar(canvas, size);  break; }
-      case 7: { _comunidad(canvas, size);   break; }
+      case 0: { _historia(canvas, size);    break; } // Historia (tiene imagen, no se usa)
+      case 1: { _etapas(canvas, size);      break; } // Las Etapas
+      case 2: { _jubilados(canvas, size);   break; } // Jubilados
+      case 3: { _galeria(canvas, size);     break; } // Galerías
+      case 4: { _musica(canvas, size);      break; } // Música
+      case 5: { _curiosos(canvas, size);    break; } // Datos Curiosos
+      case 6: { _informacion(canvas, size); break; } // Información
+      case 7: { _comoLlegar(canvas, size);  break; } // Cómo Llegar (tiene imagen)
+      case 8: { _socialRed(canvas, size);   break; } // Comunidad
     }
   }
 
@@ -143,7 +145,11 @@ class _SectionArtPainter extends CustomPainter {
       final a2 = a1 + math.pi / 5;
       final outer = center + Offset(math.cos(a1) * r, math.sin(a1) * r);
       final inner = center + Offset(math.cos(a2) * r * 0.42, math.sin(a2) * r * 0.42);
-      if (i == 0) path.moveTo(outer.dx, outer.dy); else path.lineTo(outer.dx, outer.dy);
+      if (i == 0) {
+        path.moveTo(outer.dx, outer.dy);
+      } else {
+        path.lineTo(outer.dx, outer.dy);
+      }
       path.lineTo(inner.dx, inner.dy);
     }
     path.close();
@@ -203,41 +209,77 @@ class _SectionArtPainter extends CustomPainter {
     canvas.drawCircle(Offset(c.dx, c.dy + r * 0.38), 3, _p(0.55, fill: true));
   }
 
-  // Información — fachada de museo con columnas prominentes
+  // Información — reloj (horarios) + ticket (precios) + sobre (contacto)
   void _informacion(Canvas canvas, Size s) {
-    final baseY = s.height * 0.85;
-    final leftX  = s.width * 0.08;
-    final rightX = s.width * 0.92;
-    // Frontón (triángulo)
-    final pediment = Path()
-      ..moveTo(leftX, s.height * 0.48)
-      ..lineTo(s.width / 2, s.height * 0.16)
-      ..lineTo(rightX, s.height * 0.48)
-      ..close();
-    canvas.drawPath(pediment, _p(0.22, fill: true));
-    canvas.drawPath(pediment, _p(0.45, width: 2.0));
-    // Entablamiento horizontal
-    canvas.drawLine(Offset(leftX, s.height * 0.48), Offset(rightX, s.height * 0.48), _p(0.45, width: 2.5));
-    canvas.drawLine(Offset(leftX, s.height * 0.53), Offset(rightX, s.height * 0.53), _p(0.30, width: 1.5));
-    // Base
-    canvas.drawLine(Offset(leftX * 0.7, baseY), Offset(rightX * 1.03, baseY), _p(0.45, width: 3.0));
-    canvas.drawLine(Offset(leftX * 0.5, baseY + 8), Offset(rightX * 1.05, baseY + 8), _p(0.30, width: 2.0));
-    // Columnas
-    for (int i = 0; i < 6; i++) {
-      final x = leftX + (rightX - leftX) * i / 5;
-      final colPath = Path()
-        ..addRRect(RRect.fromRectAndRadius(
-          Rect.fromLTWH(x - 7, s.height * 0.53, 14, baseY - s.height * 0.53),
-          const Radius.circular(3)));
-      canvas.drawPath(colPath, _p(0.22, fill: true));
-      canvas.drawPath(colPath, _p(0.42, width: 1.2));
+    final cx = s.width / 2;
+    final cy = s.height * 0.40;
+
+    // ── Reloj grande central ─────────────────────────────────────────────
+    final r = s.width * 0.26;
+    // Aura exterior
+    canvas.drawCircle(Offset(cx, cy), r + 14, _p(0.08, fill: true));
+    // Cuerpo
+    canvas.drawCircle(Offset(cx, cy), r, _p(0.22, fill: true));
+    canvas.drawCircle(Offset(cx, cy), r, _p(0.55, width: 2.5));
+    // Marcas de hora (12 puntos)
+    for (int i = 0; i < 12; i++) {
+      final angle = i * math.pi / 6 - math.pi / 2;
+      final inner = Offset(cx + math.cos(angle) * (r - 10), cy + math.sin(angle) * (r - 10));
+      final outer = Offset(cx + math.cos(angle) * (r - 4),  cy + math.sin(angle) * (r - 4));
+      canvas.drawLine(inner, outer, _p(i % 3 == 0 ? 0.55 : 0.30, width: i % 3 == 0 ? 2.0 : 1.2));
     }
-    // Puerta
-    final doorPath = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(s.width / 2, baseY - 20), width: 28, height: 38),
-        const Radius.circular(4)));
-    canvas.drawPath(doorPath, _p(0.35, fill: true));
+    // Manecilla de hora (apunta a las 10)
+    final hAngle = -math.pi / 2 + (10 / 12) * 2 * math.pi;
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + math.cos(hAngle) * r * 0.52, cy + math.sin(hAngle) * r * 0.52),
+      _p(0.65, width: 3.0),
+    );
+    // Manecilla de minuto (apunta a las 12)
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx, cy - r * 0.70),
+      _p(0.65, width: 2.5),
+    );
+    // Centro del reloj
+    canvas.drawCircle(Offset(cx, cy), 5, _p(0.70, fill: true));
+
+    // ── Ticket / entrada — izquierda inferior ─────────────────────────────
+    final tx = cx - s.width * 0.26;
+    final ty = cy + s.height * 0.28;
+    final ticketRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(tx, ty), width: 60, height: 32),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(ticketRect, _p(0.20, fill: true));
+    canvas.drawRRect(ticketRect, _p(0.45, width: 1.5));
+    // Borde dentado del ticket
+    for (int i = -1; i <= 1; i += 2) {
+      canvas.drawCircle(Offset(tx + i * 22.0, ty), 5, _p(0.30, fill: true));
+    }
+    // Líneas de precio dentro
+    canvas.drawLine(Offset(tx - 14, ty - 5), Offset(tx + 14, ty - 5), _p(0.35, width: 1.2));
+    canvas.drawLine(Offset(tx - 10, ty + 4), Offset(tx + 10, ty + 4), _p(0.25, width: 1.0));
+
+    // ── Sobre / email — derecha inferior ─────────────────────────────────
+    final ex = cx + s.width * 0.26;
+    final ey = cy + s.height * 0.28;
+    final envRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(ex, ey), width: 58, height: 38),
+      const Radius.circular(5),
+    );
+    canvas.drawRRect(envRect, _p(0.20, fill: true));
+    canvas.drawRRect(envRect, _p(0.45, width: 1.5));
+    // Flap del sobre (V invertida)
+    final flap = Path()
+      ..moveTo(ex - 28, ey - 19)
+      ..lineTo(ex, ey + 4)
+      ..lineTo(ex + 28, ey - 19);
+    canvas.drawPath(flap, _p(0.40, width: 1.5));
+
+    // ── Líneas conectoras desde el reloj hacia los íconos ─────────────────
+    _drawDottedLine(canvas, Offset(cx - r * 0.55, cy + r * 0.65), Offset(tx + 20, ty - 10), 5);
+    _drawDottedLine(canvas, Offset(cx + r * 0.55, cy + r * 0.65), Offset(ex - 20, ey - 10), 5);
   }
 
   // Cómo Llegar — pin de mapa grande + calles
@@ -293,6 +335,143 @@ class _SectionArtPainter extends CustomPainter {
       // Cabeza pequeña encima del nodo (figura de persona)
       canvas.drawCircle(nodes[i] - Offset(0, r + 9), r * 0.5, _p(0.28, fill: true));
       canvas.drawCircle(nodes[i] - Offset(0, r + 9), r * 0.5, _p(0.45, width: 1.2));
+    }
+  }
+
+  // Galerías — marco de foto con cuadrícula y lupa
+  void _galeria(Canvas canvas, Size s) {
+    final cx = s.width / 2;
+    final cy = s.height * 0.45;
+    final fw = s.width * 0.62;
+    final fh = s.height * 0.50;
+    // Marco principal
+    final frame = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(cx, cy), width: fw, height: fh),
+      const Radius.circular(12),
+    );
+    canvas.drawRRect(frame, _p(0.20, fill: true));
+    canvas.drawRRect(frame, _p(0.50, width: 2.0));
+    // Paisaje interior: cielo
+    canvas.drawLine(Offset(cx - fw * 0.42, cy - fh * 0.05),
+        Offset(cx + fw * 0.42, cy - fh * 0.05), _p(0.22, width: 1.0));
+    // Sol
+    canvas.drawCircle(Offset(cx - fw * 0.22, cy - fh * 0.28), 14, _p(0.30, fill: true));
+    canvas.drawCircle(Offset(cx - fw * 0.22, cy - fh * 0.28), 14, _p(0.45, width: 1.5));
+    // Montañas
+    final mtn = Path()
+      ..moveTo(cx - fw * 0.42, cy + fh * 0.22)
+      ..lineTo(cx - fw * 0.10, cy - fh * 0.28)
+      ..lineTo(cx + fw * 0.18, cy + fh * 0.08)
+      ..lineTo(cx + fw * 0.42, cy - fh * 0.18)
+      ..lineTo(cx + fw * 0.42, cy + fh * 0.22);
+    canvas.drawPath(mtn, _p(0.26, fill: true));
+    canvas.drawPath(mtn, _p(0.40, width: 1.5));
+    // Mini marcos secundarios debajo
+    for (int i = 0; i < 3; i++) {
+      final mx = cx - fw * 0.30 + i * fw * 0.30;
+      final my = cy + fh * 0.50 + 14;
+      final mf = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(mx, my), width: fw * 0.22, height: fh * 0.14),
+        const Radius.circular(5),
+      );
+      canvas.drawRRect(mf, _p(0.15, fill: true));
+      canvas.drawRRect(mf, _p(0.35, width: 1.2));
+    }
+    // Lupa — esquina inferior derecha
+    final lx = cx + fw * 0.52;
+    final ly = cy + fh * 0.38;
+    canvas.drawCircle(Offset(lx, ly), 18, _p(0.20, fill: true));
+    canvas.drawCircle(Offset(lx, ly), 18, _p(0.45, width: 2.0));
+    canvas.drawLine(Offset(lx + 13, ly + 13), Offset(lx + 26, ly + 26), _p(0.45, width: 2.5));
+  }
+
+  // Red Social — burbujas de chat, corazón, cámara y personas
+  void _socialRed(Canvas canvas, Size s) {
+    final cx = s.width / 2;
+    final cy = s.height * 0.42;
+
+    // Persona central (cabeza + cuerpo)
+    canvas.drawCircle(Offset(cx, cy - 36), 26, _p(0.28, fill: true));
+    canvas.drawCircle(Offset(cx, cy - 36), 26, _p(0.55, width: 2.0));
+    final body = Path()
+      ..moveTo(cx, cy - 8)
+      ..quadraticBezierTo(cx - 32, cy + 20, cx - 28, cy + 58)
+      ..lineTo(cx + 28, cy + 58)
+      ..quadraticBezierTo(cx + 32, cy + 20, cx, cy - 8)
+      ..close();
+    canvas.drawPath(body, _p(0.22, fill: true));
+    canvas.drawPath(body, _p(0.48, width: 1.8));
+
+    // Burbuja de chat — derecha superior
+    _drawBubble(canvas, Offset(cx + s.width * 0.28, cy - s.height * 0.22), 38, 22, true);
+
+    // Burbuja de chat — izquierda superior
+    _drawBubble(canvas, Offset(cx - s.width * 0.28, cy - s.height * 0.18), 30, 18, false);
+
+    // Cámara — derecha inferior
+    final camX = cx + s.width * 0.30;
+    final camY = cy + s.height * 0.28;
+    final camRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(camX, camY), width: 44, height: 32),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(camRect, _p(0.20, fill: true));
+    canvas.drawRRect(camRect, _p(0.45, width: 1.5));
+    canvas.drawCircle(Offset(camX, camY), 10, _p(0.35, fill: true));
+    canvas.drawCircle(Offset(camX, camY), 10, _p(0.50, width: 1.2));
+    // Visor de cámara
+    canvas.drawCircle(Offset(camX - 14, camY - 10), 4, _p(0.40, fill: true));
+
+    // Corazón — izquierda inferior
+    _drawHeart(canvas, Offset(cx - s.width * 0.28, cy + s.height * 0.25), 20);
+
+    // Puntos de conexión (líneas punteadas hacia las burbujas)
+    _drawDottedLine(canvas, Offset(cx + 28, cy - 10),
+        Offset(cx + s.width * 0.20, cy - s.height * 0.18), 6);
+    _drawDottedLine(canvas, Offset(cx - 28, cy - 10),
+        Offset(cx - s.width * 0.20, cy - s.height * 0.14), 6);
+
+    // Ondas de señal / likes flotantes
+    for (int i = 1; i <= 3; i++) {
+      canvas.drawCircle(
+        Offset(cx, cy - 36),
+        26.0 + i * 18,
+        _p(0.06 - i * 0.015, width: 1.0),
+      );
+    }
+  }
+
+  void _drawBubble(Canvas canvas, Offset pos, double w, double h, bool tailRight) {
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: pos, width: w, height: h),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(rect, _p(0.22, fill: true));
+    canvas.drawRRect(rect, _p(0.48, width: 1.5));
+    // Cola de la burbuja
+    final tailX = tailRight ? pos.dx - w * 0.25 : pos.dx + w * 0.25;
+    final tail = Path()
+      ..moveTo(tailX - 5, pos.dy + h / 2)
+      ..lineTo(tailX, pos.dy + h / 2 + 10)
+      ..lineTo(tailX + 5, pos.dy + h / 2)
+      ..close();
+    canvas.drawPath(tail, _p(0.22, fill: true));
+    canvas.drawPath(tail, _p(0.45, width: 1.0));
+    // Líneas de texto dentro
+    for (int i = 0; i < 2; i++) {
+      canvas.drawLine(
+        Offset(pos.dx - w * 0.35, pos.dy - 3.0 + i * 8),
+        Offset(pos.dx + w * (i == 0 ? 0.35 : 0.20), pos.dy - 3.0 + i * 8),
+        _p(0.30, width: 1.0),
+      );
+    }
+  }
+
+  void _drawDottedLine(Canvas canvas, Offset a, Offset b, int dots) {
+    for (int i = 1; i < dots; i++) {
+      final t = i / dots;
+      final pt = Offset(a.dx + (b.dx - a.dx) * t, a.dy + (b.dy - a.dy) * t);
+      canvas.drawCircle(pt, 2, _p(0.20, fill: true));
     }
   }
 
@@ -352,6 +531,15 @@ final _sections = [
     screen: const JubiladosScreen(),
   ),
   _Section(
+    titulo: 'Galerías',
+    subtitulo: 'Explora nuestro acervo fotográfico e histórico',
+    categoria: 'ARCHIVO VISUAL',
+    icon: Icons.photo_library,
+    color: const Color(0xFF2E7D9A),
+    colorSecundario: const Color(0xFF1A5E75),
+    screen: const ImagesScreen(),
+  ),
+  _Section(
     titulo: 'Música',
     subtitulo: 'Conciertos, eventos y patrimonio musical de Mendoza',
     categoria: 'ARTE & CULTURA',
@@ -392,7 +580,7 @@ final _sections = [
     titulo: 'Comunidad',
     subtitulo: 'Explora, conecta y comparte con otros egresados',
     categoria: 'RED SOCIAL',
-    icon: Icons.forum,
+    icon: Icons.hub_rounded,
     color: const Color(0xFFE04E4E),
     colorSecundario: const Color(0xFF9B1A1A),
     screen: const MuroScreen(),
@@ -423,8 +611,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 0.82);
-    
+    _pageController = PageController();
+
     _checkAdminStatus();
     
     // Inicializar Push Notifications si el usuario está logueado
@@ -458,539 +646,574 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  static const Color _gold      = Color(0xFFB8973A);
+  static const Color _goldLight = Color(0xFFD4AF5A);
+
   @override
   Widget build(BuildContext context) {
     final current = _sections[_currentPage];
+    final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFF080E18),
+      // ── AppBar flotante transparente ────────────────────────────────────
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: Builder(
-          builder: (context) {
-            return IconButton(
-              icon: const Icon(Icons.menu, color: Color(0xFF1A2B4A), size: 26),
-              onPressed: () {
-                Scaffold.of(context).openDrawer();
-              },
-            );
-          }
-        ),
-        title: const Text(
-          'MUSEO',
-          style: TextStyle(
-            color: Color(0xFF1A2B4A),
-            fontWeight: FontWeight.w900,
-            fontSize: 20,
-            letterSpacing: 4,
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 26),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
           ),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 22, height: 1.5, color: _goldLight),
+            const SizedBox(width: 10),
+            const Text(
+              'MUSEO',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                letterSpacing: 4,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(width: 22, height: 1.5, color: _goldLight),
+          ],
         ),
         centerTitle: true,
         actions: [
-          // Notification Bell
           if (Supabase.instance.client.auth.currentUser != null)
             StreamBuilder<List<Map<String, dynamic>>>(
               stream: Supabase.instance.client
                   .from('in_app_notifications')
                   .stream(primaryKey: ['id'])
                   .eq('user_id', Supabase.instance.client.auth.currentUser!.id)
-                  .map((list) => list.where((notif) => notif['leido'] == false).toList()),
+                  .map((list) =>
+                      list.where((n) => n['leido'] == false).toList()),
               builder: (context, snapshot) {
-                final unreadCount = snapshot.data?.length ?? 0;
+                final count = snapshot.data?.length ?? 0;
                 return Stack(
                   alignment: Alignment.center,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.notifications_outlined, color: Color(0xFF1A2B4A), size: 26),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                        );
-                      },
+                      icon: const Icon(Icons.notifications_outlined,
+                          color: Colors.white, size: 24),
+                      onPressed: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const NotificationsScreen())),
                     ),
-                    if (unreadCount > 0)
+                    if (count > 0)
                       Positioned(
-                        right: 8,
-                        top: 10,
+                        right: 8, top: 10,
                         child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
+                          width: 16, height: 16,
+                          decoration: BoxDecoration(
+                            color: _gold, shape: BoxShape.circle,
                           ),
+                          alignment: Alignment.center,
                           child: Text(
-                            unreadCount > 9 ? '9+' : '$unreadCount',
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            count > 9 ? '9+' : '$count',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
-                      )
+                      ),
                   ],
                 );
               },
             ),
-
-          // Perfil / Login dinámico según sesión
           IconButton(
             icon: Icon(
-              Supabase.instance.client.auth.currentUser != null 
-                ? Icons.person_pin 
-                : Icons.account_circle_outlined, 
-              color: const Color(0xFF1A2B4A)
+              Supabase.instance.client.auth.currentUser != null
+                  ? Icons.person_rounded
+                  : Icons.person_outline_rounded,
+              color: Colors.white, size: 24,
             ),
             onPressed: () {
               if (Supabase.instance.client.auth.currentUser != null) {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()));
               } else {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()));
               }
             },
           ),
-          
-          // Icono del Mapa
           IconButton(
-            icon: const Icon(Icons.map_outlined, color: Color(0xFF1A2B4A), size: 26),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ComoLlegarScreen()),
-            ),
+            icon: const Icon(Icons.near_me_outlined, color: Colors.white, size: 22),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ComoLlegarScreen())),
           ),
         ],
       ),
+      // ── Drawer ──────────────────────────────────────────────────────────
       drawer: Drawer(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF0D1521),
         child: Column(
           children: [
-            DrawerHeader(
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(24, 56, 24, 28),
               decoration: const BoxDecoration(
-                color: Color(0xFF1A2B4A),
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0F1C35), Color(0xFF1A3050)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
-              child: const SizedBox(
-                width: double.infinity,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Icon(Icons.account_balance, color: Colors.white, size: 48),
-                    SizedBox(height: 16),
-                    Text(
-                      'MUSEO UM',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 60, height: 60,
+                    decoration: BoxDecoration(
+                      color: _gold.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _gold.withValues(alpha: 0.5), width: 1.5),
+                    ),
+                    child: const Icon(Icons.account_balance_rounded, color: _goldLight, size: 32),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('MUSEO UM',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2,
+                        color: Colors.white, fontSize: 22,
+                        fontWeight: FontWeight.w900, letterSpacing: 2.5,
+                      )),
+                  const SizedBox(height: 4),
+                  Text('George W. Caviness',
+                      style: TextStyle(
+                        color: _goldLight.withValues(alpha: 0.8), fontSize: 12,
+                      )),
+                  const SizedBox(height: 16),
+                  Container(
+                    height: 1,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF3A2800), Color(0xFFD4AF5A), Color(0xFF3A2800)],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             Expanded(
               child: ListView.builder(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 itemCount: _sections.length,
                 itemBuilder: (context, index) {
-                  final section = _sections[index];
-                  return ListTile(
-                    leading: Icon(section.icon, color: section.color),
-                    title: Text(
-                      section.titulo,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A2B4A),
-                      ),
+                  final s = _sections[index];
+                  final isActive = index == _currentPage;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? s.color.withValues(alpha: 0.15)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                      border: isActive
+                          ? Border.all(color: s.color.withValues(alpha: 0.35))
+                          : null,
                     ),
-                    onTap: () {
-                      Navigator.pop(context); // Cerrar el drawer
-                      _goToPage(index); // Navegar a la página correspondiente en el carrusel
-                    },
+                    child: ListTile(
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      leading: Container(
+                        width: 38, height: 38,
+                        decoration: BoxDecoration(
+                          color: s.color.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Icon(s.icon, color: s.color, size: 20),
+                      ),
+                      title: Text(s.titulo,
+                          style: TextStyle(
+                            color: isActive ? Colors.white : Colors.white70,
+                            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                            fontSize: 14,
+                          )),
+                      subtitle: Text(s.categoria,
+                          style: TextStyle(
+                            color: s.color.withValues(alpha: 0.8),
+                            fontSize: 10,
+                            letterSpacing: 1,
+                            fontWeight: FontWeight.w600,
+                          )),
+                      onTap: () {
+                        Navigator.pop(context); // Cerrar el drawer
+                        _pageController.jumpToPage(index); // Actualizar el carrusel de fondo
+                        
+                        // Ir directamente a la pantalla correspondiente
+                        Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) => s.screen,
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              return SlideTransition(
+                                position: Tween<Offset>(begin: const Offset(0.0, 1.0), end: Offset.zero)
+                                    .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                                child: child,
+                              );
+                            },
+                            transitionDuration: const Duration(milliseconds: 400),
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
             ),
-            const Divider(),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+            const SizedBox(height: 8),
             if (Supabase.instance.client.auth.currentUser == null)
-              ListTile(
-                leading: const Icon(Icons.login, color: Color(0xFF1A2B4A)),
-                title: const Text(
-                  'Iniciar Sesión',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A2B4A),
-                  ),
-                ),
+              _DrawerTile(
+                icon: Icons.login_rounded,
+                label: 'Iniciar Sesión',
+                color: _goldLight,
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  );
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()));
                 },
               )
             else ...[
-              ListTile(
-                leading: const Icon(Icons.person, color: Color(0xFF1A2B4A)),
-                title: const Text(
-                  'Mi Perfil',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A2B4A),
-                  ),
-                ),
+              _DrawerTile(
+                icon: Icons.person_rounded,
+                label: 'Mi Perfil',
+                color: Colors.white70,
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                  );
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()));
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.group, color: Color(0xFF1A2B4A)),
-                title: const Text(
-                  'Conexiones y Mensajes',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A2B4A),
-                  ),
-                ),
+              _DrawerTile(
+                icon: Icons.group_rounded,
+                label: 'Conexiones y Mensajes',
+                color: Colors.white70,
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SocialHubScreen()),
-                  );
+                  Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const SocialHubScreen()));
                 },
               ),
               if (_isAdmin)
-                ListTile(
-                  leading: const Icon(Icons.admin_panel_settings, color: Colors.orange),
-                  title: const Text(
-                    'Panel de Administrador',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange,
-                    ),
-                  ),
+                _DrawerTile(
+                  icon: Icons.admin_panel_settings_rounded,
+                  label: 'Panel de Administrador',
+                  color: Colors.orange,
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
-                    );
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
                   },
                 ),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text(
-                  'Cerrar Sesión',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
-                ),
+              _DrawerTile(
+                icon: Icons.logout_rounded,
+                label: 'Cerrar Sesión',
+                color: Colors.redAccent,
                 onTap: () async {
                   Navigator.pop(context);
                   await Supabase.instance.client.auth.signOut();
-                  // No se necesita hacer más, onAuthStateChange redibujará la pantalla
                 },
               ),
             ],
-            const SizedBox(height: 20),
+            SizedBox(height: 16 + bottomPad),
           ],
         ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      // ── Body: pantalla completa con panel inferior ──────────────────────
+      body: Stack(
         children: [
-          // ── Tabs horizontales ──
-          SizedBox(
-            height: 42,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _sections.length,
-              itemBuilder: (context, index) {
-                final selected = index == _currentPage;
-                final section = _sections[index];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8, top: 2, bottom: 2),
-                  child: GestureDetector(
-                    onTap: () => _goToPage(index),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+          // Full-screen pager
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (i) => setState(() => _currentPage = i),
+            itemCount: _sections.length,
+            itemBuilder: (_, index) {
+              final s = _sections[index];
+              return GestureDetector(
+                onVerticalDragEnd: (details) {
+                  if (details.primaryVelocity != null && details.primaryVelocity! < -100) {
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) => s.screen,
+                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                          return SlideTransition(
+                            position: Tween<Offset>(begin: const Offset(0.0, 1.0), end: Offset.zero)
+                                .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                            child: child,
+                          );
+                        },
+                        transitionDuration: const Duration(milliseconds: 400),
+                      ),
+                    );
+                  }
+                },
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                  // Fondo: imagen real o gradiente + arte
+                  if (s.imagePath != null)
+                    Image.asset(s.imagePath!, fit: BoxFit.cover)
+                  else
+                    Container(
                       decoration: BoxDecoration(
-                        color: selected ? section.color : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: selected ? section.color : Colors.grey.shade300,
-                          width: 1.5,
+                        gradient: LinearGradient(
+                          colors: [s.colorSecundario, s.color],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
                       ),
-                      child: Text(
-                        section.titulo,
-                        style: TextStyle(
-                          color: selected ? Colors.white : Colors.grey.shade500,
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
-                          fontSize: 13,
-                        ),
+                      child: CustomPaint(painter: _SectionArtPainter(index)),
+                    ),
+                  // Gradiente overlay encima/abajo
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.55),
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.92),
+                        ],
+                        stops: const [0.0, 0.38, 1.0],
                       ),
                     ),
                   ),
-                );
-              },
-            ),
+                ],
+              ),
+            );
+          },
           ),
 
-          // ── Watermark EXPLORA ──
-          Padding(
-            padding: const EdgeInsets.only(left: 20, top: 8),
-            child: Text(
-              'EXPLORA',
-              style: TextStyle(
-                fontSize: 50,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 8,
-                color: current.color.withValues(alpha: 0.10),
+          // Panel de información inferior
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(24, 0, 24, 28 + bottomPad),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Badge de categoría
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Container(
+                      key: ValueKey(current.categoria),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: current.color.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(current.icon, color: Colors.white, size: 12),
+                          const SizedBox(width: 6),
+                          Text(
+                            current.categoria,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Título grande
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    child: Text(
+                      current.titulo,
+                      key: ValueKey(current.titulo),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 40,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Separador dorado
+                  Row(
+                    children: [
+                      Container(width: 28, height: 2, color: _gold),
+                      Container(
+                        width: 5, height: 5,
+                        margin: const EdgeInsets.symmetric(horizontal: 5),
+                        decoration: const BoxDecoration(shape: BoxShape.circle, color: _gold),
+                      ),
+                      Expanded(child: Container(height: 1, color: _gold.withValues(alpha: 0.25))),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Subtítulo
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Text(
+                      current.subtitulo,
+                      key: ValueKey(current.subtitulo),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  // Fila: botón + indicadores
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) => current.screen,
+                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                              return SlideTransition(
+                                position: Tween<Offset>(begin: const Offset(0.0, 1.0), end: Offset.zero)
+                                    .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+                                child: child,
+                              );
+                            },
+                            transitionDuration: const Duration(milliseconds: 400),
+                          ),
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: current.color,
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: [
+                              BoxShadow(
+                                color: current.color.withValues(alpha: 0.5),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Explorar',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      // Indicadores de página
+                      Row(
+                        children: List.generate(
+                          _sections.length,
+                          (i) => GestureDetector(
+                            onTap: () => _goToPage(i),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width: i == _currentPage ? 18 : 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: i == _currentPage
+                                    ? _goldLight
+                                    : Colors.white.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
 
-          // ── Carrusel ──
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: (index) => setState(() => _currentPage = index),
-              itemCount: _sections.length,
-              itemBuilder: (context, index) {
-                final section = _sections[index];
-                final isActive = index == _currentPage;
-
-                return AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: isActive ? 1.0 : 0.45,
-                  child: AnimatedScale(
-                  scale: isActive ? 1.0 : 0.86,
-                  duration: const Duration(milliseconds: 350),
-                  curve: Curves.easeOut,
-                  child: GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => section.screen),
-                    ),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: isActive
-                            ? [
-                                BoxShadow(
-                                  color: section.color.withValues(alpha: 0.30),
-                                  blurRadius: 36,
-                                  offset: const Offset(0, 18),
-                                ),
-                              ]
-                            : [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.07),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(28),
-                        child: Column(
-                          children: [
-                            // ── Zona superior: foto o gradiente con ilustración ──
-                            Expanded(
-                              flex: 12,
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: section.imagePath != null
-                                      ? Colors.black
-                                      : null,
-                                  gradient: section.imagePath == null
-                                      ? LinearGradient(
-                                          colors: [section.color, section.colorSecundario],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        )
-                                      : null,
-                                ),
-                                child: Stack(
-                                  children: [
-                                    // Foto real si existe, si no ilustración
-                                    if (section.imagePath != null)
-                                      Positioned.fill(
-                                        child: Image.asset(
-                                          section.imagePath!,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                    // Ilustración para secciones sin foto
-                                    if (section.imagePath == null)
-                                      Positioned.fill(
-                                        child: CustomPaint(
-                                          painter: _SectionArtPainter(index),
-                                        ),
-                                      ),
-                                    // Número de catálogo — esquina superior izquierda
-                                    Positioned(
-                                      top: 18,
-                                      left: 20,
-                                      child: Text(
-                                        index < 9 ? '— 0${index + 1}' : '— ${index + 1}',
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.75),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 2.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            // ── Zona inferior: etiqueta editorial sobre fondo blanco ──
-                            Expanded(
-                              flex: 8,
-                              child: Container(
-                                width: double.infinity,
-                                color: Colors.white,
-                                padding: const EdgeInsets.fromLTRB(22, 14, 22, 16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Categoría con guión de color
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 18,
-                                          height: 2,
-                                          decoration: BoxDecoration(
-                                            color: section.color,
-                                            borderRadius: BorderRadius.circular(1),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          section.categoria,
-                                          style: TextStyle(
-                                            color: section.color,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 1.8,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    // Título
-                                    Text(
-                                      section.titulo,
-                                      style: const TextStyle(
-                                        color: Color(0xFF0F1C33),
-                                        fontSize: 23,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -0.3,
-                                        height: 1.05,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    // Divisor fino
-                                    Divider(
-                                      height: 1,
-                                      thickness: 1,
-                                      color: Colors.grey.shade100,
-                                    ),
-                                    const SizedBox(height: 5),
-                                    // Subtítulo
-                                    Text(
-                                      section.subtitulo,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade400,
-                                        fontSize: 11.5,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    // Fila inferior: "Ver colección" + flecha
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Ver colección',
-                                          style: TextStyle(
-                                            color: section.color,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.4,
-                                          ),
-                                        ),
-                                        Container(
-                                          width: 30,
-                                          height: 30,
-                                          decoration: BoxDecoration(
-                                            color: section.color,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.arrow_forward_rounded,
-                                            color: Colors.white,
-                                            size: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // ── Indicadores de página ──
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _sections.length,
-              (i) => AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 10),
-                width: i == _currentPage ? 22 : 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: i == _currentPage
-                      ? _sections[_currentPage].color
-                      : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(3),
+          // Número de sección — esquina superior derecha
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 56,
+            right: 20,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                _currentPage < 9
+                    ? '0${_currentPage + 1} / 0${_sections.length}'
+                    : '${_currentPage + 1} / ${_sections.length}',
+                key: ValueKey(_currentPage),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.45),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
                 ),
               ),
             ),
           ),
-
-          const SizedBox(height: 12),
         ],
       ),
+    );
+  }
+}
+
+class _DrawerTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DrawerTile({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+      leading: Icon(icon, color: color, size: 22),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }

@@ -123,10 +123,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 return FutureBuilder<Map<String, dynamic>>(
                   future: _client.from('profiles').select('nombre, username, avatar_url').eq('id', actorId).single(),
                   builder: (context, profileSnapshot) {
-                    if (!profileSnapshot.hasData) return const SizedBox.shrink();
-                    final profile = profileSnapshot.data!;
-                    final actorName = profile['nombre'] as String? ?? profile['username'] as String? ?? 'Alguien';
+                    if (profileSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      );
+                    }
                     
+                    String actorName = 'Usuario';
+                    if (profileSnapshot.hasData) {
+                      final profile = profileSnapshot.data!;
+                      actorName = profile['nombre'] as String? ?? profile['username'] as String? ?? 'Alguien';
+                    }
+
                     return InkWell(
                       onTap: () {
                          if (!isLeido) _markAsRead(notif['id']);
@@ -186,3 +195,4 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 }
+
