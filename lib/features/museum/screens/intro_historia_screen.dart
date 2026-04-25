@@ -85,62 +85,78 @@ class IntroHistoriaScreen extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _HeroBanner(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Bienvenida ──────────────────────────────────────────
-                  _SectionLabel(label: 'BIENVENIDA E HISTORIA'),
-                  const SizedBox(height: 14),
-                  _WelcomeCard(),
-                  const SizedBox(height: 32),
-
-                  // ── Línea del tiempo ────────────────────────────────────
-                  _SectionLabel(label: 'LÍNEA DEL TIEMPO'),
-                  const SizedBox(height: 14),
-                  for (int i = 0; i < _timeline.length; i++)
-                    _TimelineItem(
-                      data: _timeline[i],
-                      isLast: i == _timeline.length - 1,
-                    ),
-                  const SizedBox(height: 32),
-
-                  // ── Nuestra esencia ─────────────────────────────────────
-                  _SectionLabel(label: 'NUESTRA ESENCIA'),
-                  const SizedBox(height: 14),
-                  for (final e in _esencia) ...[
-                    _EsenciaCard(data: e),
-                    const SizedBox(height: 12),
-                  ],
-                  const SizedBox(height: 32),
-
-                  // ── Personajes clave ────────────────────────────────────
-                  _SectionLabel(label: 'PERSONAJES CLAVE'),
-                  const SizedBox(height: 14),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 0.82,
-                    ),
-                    itemCount: _importantPeople.length,
-                    itemBuilder: (context, index) {
-                      final person = _importantPeople[index];
-                      return _PersonCard(
-                        name: person['name']!,
-                        role: person['role']!,
-                        imageUrl: person['imageUrl']!,
-                      );
-                    },
-                  ),
-                ],
-              ),
+            _HeroCard(
+              icon: Icons.account_balance,
+              color: _teal,
+              title: 'George W. Caviness',
+              subtitle: 'Corazón de nuestra memoria universitaria',
             ),
+            const SizedBox(height: 20),
+            _SectionTitle('Bienvenida e Historia', _darkNavy),
+            const SizedBox(height: 12),
+            _InfoCard(
+              content:
+                  'Bienvenidos al Museo Universitario. Aquí, '
+                  'cada objeto guarda el eco de un sacrificio por la educación '
+                  'adventista. Nuestra universidad ha trazado un camino de fe '
+                  'que hoy nos toca continuar, recorriendo etapas que forjaron '
+                  'nuestra identidad actual.',
+            ),
+            const SizedBox(height: 20),
+            _SectionTitle('Línea del Tiempo', _darkNavy),
+            const SizedBox(height: 12),
+            _TimelineItem(
+              year: '1935 - Orígenes',
+              description:
+                  'Fundación del Instituto Comercial Prosperidad en la CDMX. '
+                  'Una pequeña semilla que contenía la grandeza de nuestra visión.',
+              color: _teal,
+              isFirst: true,
+            ),
+            _TimelineItem(
+              year: '1942 - El Traslado',
+              description:
+                  'Nacimiento de la Escuela Agrícola Industrial Mexicana en '
+                  'la hacienda "La Carlota", Montemorelos.',
+              color: const Color(0xFF2E7D9A),
+            ),
+            _TimelineItem(
+              year: '1951 - Crecimiento',
+              description:
+                  'Autorización del Colegio Vocacional y Profesional (COVOPROM) '
+                  'y ampliación del nivel académico e industrial.',
+              color: const Color(0xFF5B6FA0),
+            ),
+            _TimelineItem(
+              year: '1973 - Universidad',
+              description:
+                  'Decreto oficial de creación de la Universidad de Montemorelos. '
+                  'Amanecer de una nueva era de excelencia profesional.',
+              color: _darkNavy,
+              isLast: true,
+            ),
+            const SizedBox(height: 20),
+            _SectionTitle('Nuestra Esencia', _darkNavy),
+            const SizedBox(height: 12),
+            _MisionCard(
+              icon: Icons.star,
+              title: 'Filosofía',
+              content:
+                  'La verdadera educación significa el desarrollo armonioso '
+                  'de las facultades físicas, mentales y espirituales.',
+              color: _teal,
+            ),
+            const SizedBox(height: 10),
+            _MisionCard(
+              icon: Icons.visibility,
+              title: 'Nuestro Lema',
+              content:
+                  '"Educar es Redimir", nuestro sello inalterable y compromiso '
+                  'eterno con Dios y la humanidad.',
+              color: _darkNavy,
+            ),
+            const SizedBox(height: 24),
+
           ],
         ),
       ),
@@ -148,35 +164,7 @@ class IntroHistoriaScreen extends StatelessWidget {
   }
 }
 
-// ── Datos ────────────────────────────────────────────────────────────────────
-class _TimelineData {
-  final String year;
-  final String label;
-  final String description;
-  final Color color;
-  const _TimelineData({
-    required this.year,
-    required this.label,
-    required this.description,
-    required this.color,
-  });
-}
 
-class _EsenciaData {
-  final IconData icon;
-  final String title;
-  final String content;
-  const _EsenciaData({required this.icon, required this.title, required this.content});
-}
-
-final List<Map<String, String>> _importantPeople = List.generate(
-  20,
-  (i) => {
-    'name': 'Nombre ${i + 1}',
-    'role': 'Pionero / Colaborador',
-    'imageUrl': 'https://picsum.photos/200/200?random=$i',
-  },
-);
 
 // ── Hero banner ──────────────────────────────────────────────────────────────
 class _HeroBanner extends StatelessWidget {
@@ -635,113 +623,4 @@ class _EsenciaCard extends StatelessWidget {
   }
 }
 
-// ── Card de personaje ────────────────────────────────────────────────────────
-class _PersonCard extends StatelessWidget {
-  final String name;
-  final String role;
-  final String imageUrl;
 
-  const _PersonCard({required this.name, required this.role, required this.imageUrl});
-
-  static const Color _navy = Color(0xFF0F1C35);
-  static const Color _gold = Color(0xFFB8973A);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _gold.withValues(alpha: 0.22)),
-        boxShadow: [
-          BoxShadow(
-            color: _navy.withValues(alpha: 0.09),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          children: [
-            // Franja dorada superior
-            Container(
-              height: 3,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF6B5000), Color(0xFFD4AF5A), Color(0xFF6B5000)],
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Avatar
-                    Container(
-                      width: 72, height: 72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: _gold, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _navy.withValues(alpha: 0.15),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                        image: DecorationImage(
-                          image: NetworkImage(imageUrl),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Línea dorada
-                    Container(
-                      height: 1.5, width: 24,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFB8973A), Color(0xFFD4AF5A)],
-                        ),
-                        borderRadius: BorderRadius.circular(1),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      name,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: _navy,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      role,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[500],
-                        letterSpacing: 0.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
