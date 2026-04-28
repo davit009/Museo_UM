@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:ui';
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1946,23 +1948,26 @@ class _FolderGalleryScreenState extends State<_FolderGalleryScreen> {
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  item.isAsset
-                                      ? Image.asset(
-                                          item.path,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => _ImageErrorTile(color: widget.color),
-                                        )
-                                      : Image.network(
-                                          item.path,
-                                          fit: BoxFit.cover,
-                                          loadingBuilder: (context, child, progress) {
-                                            if (progress == null) return child;
-                                            return const Center(
-                                              child: CircularProgressIndicator(strokeWidth: 2.2),
-                                            );
-                                          },
-                                          errorBuilder: (_, __, ___) => _ImageErrorTile(color: widget.color),
-                                        ),
+                                  Hero(
+                                    tag: item.path,
+                                    child: item.isAsset
+                                        ? Image.asset(
+                                            item.path,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => _ImageErrorTile(color: widget.color),
+                                          )
+                                        : Image.network(
+                                            item.path,
+                                            fit: BoxFit.cover,
+                                            loadingBuilder: (context, child, progress) {
+                                              if (progress == null) return child;
+                                              return const Center(
+                                                child: CircularProgressIndicator(strokeWidth: 2.2),
+                                              );
+                                            },
+                                            errorBuilder: (_, __, ___) => _ImageErrorTile(color: widget.color),
+                                          ),
+                                  ),
                                   if (_isAdmin && item.canBeManaged)
                                     Positioned(
                                       bottom: 8, right: 8,
@@ -2176,22 +2181,59 @@ class _GalleryPreviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: color,
-        title: Text(title),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: CircleAvatar(
+            backgroundColor: Colors.black.withValues(alpha: 0.4),
+            child: const BackButton(color: Colors.white),
+          ),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            shadows: [Shadow(blurRadius: 10, color: Colors.black45, offset: Offset(0, 2))],
+          ),
+        ),
+        centerTitle: true,
       ),
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          Center(
-            child: InteractiveViewer(
-              minScale: 0.8,
-              maxScale: 5,
-              child: item.isAsset
-                  ? Image.asset(item.path, fit: BoxFit.contain)
-                  : Image.network(item.path, fit: BoxFit.contain),
+          // Background Image (Blurred)
+          Positioned.fill(
+            child: item.isAsset
+                ? Image.asset(item.path, fit: BoxFit.cover)
+                : Image.network(item.path, fit: BoxFit.cover),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+              child: Container(color: Colors.black.withValues(alpha: 0.7)),
             ),
           ),
+          
+          // Main Image
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4,
+              child: Hero(
+                tag: item.path,
+                child: item.isAsset
+                    ? Image.asset(item.path, fit: BoxFit.contain)
+                    : Image.network(item.path, fit: BoxFit.contain),
+              ),
+            ),
+          ),
+
+          // Description Overlay
           Positioned(
             bottom: 0,
             left: 0,
@@ -2202,19 +2244,89 @@ class _GalleryPreviewScreen extends StatelessWidget {
                 if (!snapshot.hasData || snapshot.data == null || snapshot.data!.isEmpty) {
                   return const SizedBox.shrink();
                 }
-                return Container(
-                  padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+                final description = snapshot.data!;
+                
+                return ClipRRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).padding.bottom + 24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.0),
+                            Colors.black.withValues(alpha: 0.8),
+                          ],
+                        ),
+                        border: Border(
+                          top: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 0.5),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Handle/Separator
+                          Center(
+                            child: Container(
+                              width: 40,
+                              height: 4,
+                              margin: const EdgeInsets.only(bottom: 20),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: color.withValues(alpha: 0.5)),
+                                ),
+                                child: Text(
+                                  'DETALLES',
+                                  style: TextStyle(
+                                    color: color.withValues(alpha: 0.9),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Container(
+                                  height: 1,
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            description,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.95),
+                              fontSize: 17,
+                              height: 1.6,
+                              fontWeight: FontWeight.w400,
+                              fontFamily: 'Georgia', // Serif font for historical context
+                              fontStyle: FontStyle.italic,
+                              shadows: const [
+                                Shadow(blurRadius: 4, color: Colors.black, offset: Offset(0, 1))
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    snapshot.data!,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5),
-                    textAlign: TextAlign.center,
                   ),
                 );
               },
@@ -2225,6 +2337,7 @@ class _GalleryPreviewScreen extends StatelessWidget {
     );
   }
 }
+
 
 class _GoldChip extends StatelessWidget {
   final IconData icon;

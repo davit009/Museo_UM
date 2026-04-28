@@ -8,6 +8,8 @@ import 'package:museo_app/features/auth/screens/login_screen.dart';
 import 'package:museo_app/features/social/widgets/connect_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:museo_app/features/social/screens/comments_bottom_sheet.dart';
+import 'package:museo_app/features/admin/services/admin_service.dart';
+
 
 class MuroScreen extends StatefulWidget {
   const MuroScreen({super.key});
@@ -33,6 +35,9 @@ class _MuroScreenState extends State<MuroScreen> {
 
   bool _isLoading = true;
   bool _isPosting = false;
+  String _myRole = 'user';
+  final _adminService = AdminService();
+
   
   // Tagging
   List<Map<String, dynamic>> _friends = [];
@@ -139,9 +144,11 @@ class _MuroScreenState extends State<MuroScreen> {
     try {
       final posts = await _muroService.fetchPosts();
       final myProfile = await _muroService.getMyProfile();
+      final myRole = await _adminService.getCurrentUserRole();
       setState(() {
         _posts = posts;
         _myProfile = myProfile;
+        _myRole = myRole;
       });
     } catch (e) {
       if (mounted) {
@@ -273,7 +280,12 @@ class _MuroScreenState extends State<MuroScreen> {
 
   Future<void> _eliminar(int postId) async {
     try {
-      await _muroService.deletePost(postId);
+      // Usamos el servicio de admin si somos superadmin
+      if (_myRole == 'superadmin') {
+        await _adminService.deletePost(postId);
+      } else {
+        await _muroService.deletePost(postId);
+      }
       await _loadPosts();
     } catch (e) {
       if (mounted) {
@@ -385,7 +397,7 @@ class _MuroScreenState extends State<MuroScreen> {
               ),
               CircleAvatar(
                 radius: 40,
-                backgroundColor: _color.withValues(alpha: 0.15),
+                backgroundColor: _color.withOpacity(0.15),
                 child: Text(
                   nombre.isNotEmpty ? nombre[0].toUpperCase() : 'V',
                   style: const TextStyle(color: _color, fontSize: 32, fontWeight: FontWeight.bold),
@@ -400,7 +412,7 @@ class _MuroScreenState extends State<MuroScreen> {
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFF1B9E8A).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(color: const Color(0xFF1B9E8A).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -486,7 +498,7 @@ class _MuroScreenState extends State<MuroScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -505,7 +517,7 @@ class _MuroScreenState extends State<MuroScreen> {
           return ListTile(
             leading: CircleAvatar(
               radius: 16,
-              backgroundColor: _color.withValues(alpha: 0.1),
+              backgroundColor: _color.withOpacity(0.1),
               child: Text(
                 name.isNotEmpty ? name[0].toUpperCase() : 'U',
                 style: const TextStyle(color: _color, fontSize: 12, fontWeight: FontWeight.bold),
@@ -710,601 +722,428 @@ class _MuroScreenState extends State<MuroScreen> {
     );
   }
 
+  bool _isUserAdmin(Map<String, dynamic>? perfil) {
+    if (perfil == null) return false;
+    final role = (perfil['role'] ?? '').toString().toLowerCase();
+    final isAdmin = perfil['is_admin'] == true;
+    return isAdmin || role == 'admin' || role == 'superadmin' || role == 'editor' || role == 'moderator';
+  }
+
+  bool _isUserSuperAdmin(Map<String, dynamic>? perfil) {
+    if (perfil == null) return false;
+    final role = (perfil['role'] ?? '').toString().toLowerCase();
+    final isAdmin = perfil['is_admin'] == true;
+    return isAdmin || role == 'admin' || role == 'superadmin';
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUserId = _muroService.currentUser?.id;
     final estaLogueado = currentUserId != null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F3F5),
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         backgroundColor: _color,
-        title: const Text('Comunidad UM'),
-        foregroundColor: Colors.white,
         elevation: 0,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('COMUNIDAD UM', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+            Text('Conecta con el pasado y presente', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w400, color: Colors.white70)),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded, size: 22),
             onPressed: _loadPosts,
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(
         children: [
-          Container(
-            color: const Color(0xFF1A2B4A),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Row(
-              children: [
-                const Icon(Icons.people_alt_rounded, color: Colors.white54, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  '${_filteredPosts.length} publicaciones en la red universitaria',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-
           // ── Caja de texto para publicar ──
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: estaLogueado
                 ? Column(
                     children: [
                       Row(
                         children: [
-                          const Text('Categoría: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(width: 8),
+                          const CircleAvatar(
+                            radius: 18,
+                            backgroundColor: Color(0xFF1A2B4A),
+                            child: Icon(Icons.person_rounded, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: _categoriasPost.map((cat) {
-                                  final isSelected = _selectedNewPostCategory == cat;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 6),
-                                    child: ChoiceChip(
-                                      label: Text(cat, style: TextStyle(fontSize: 12, color: isSelected ? Colors.white : Colors.grey.shade700)),
-                                      selected: isSelected,
-                                      selectedColor: const Color(0xFF1A2B4A),
-                                      backgroundColor: Colors.grey.shade200,
-                                      onSelected: (_) => setState(() => _selectedNewPostCategory = cat),
-                                    ),
-                                  );
-                                }).toList(),
+                            child: TextField(
+                              controller: _textController,
+                              focusNode: _textFocusNode,
+                              maxLines: null,
+                              decoration: InputDecoration(
+                                hintText: '¿Qué estás pensando?',
+                                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                                border: InputBorder.none,
                               ),
                             ),
-                          )
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      _buildMentionSuggestions(),
+                      _buildSelectedImagesPreview(),
+                      const SizedBox(height: 12),
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          const CircleAvatar(
-                            radius: 20,
-                            backgroundColor: Color(0xFF1A2B4A),
-                            child: Icon(Icons.person, color: Colors.white, size: 22),
+                          // Botones de acción
+                          IconButton(
+                            icon: const Icon(Icons.image_outlined, size: 22),
+                            color: _color,
+                            onPressed: _pickImages,
+                            visualDensity: VisualDensity.compact,
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextField(
-                                  controller: _textController,
-                                  focusNode: _textFocusNode,
-                                  maxLines: 3,
-                                  minLines: 1,
-                                  maxLength: 280,
-                                  decoration: InputDecoration(
-                                    hintText: _selectedNewPostCategory == 'Duda' ? 'Expresa tu duda a la comunidad...' :
-                                              _selectedNewPostCategory == 'Empleo' ? 'Comparte una oportunidad laboral...' :
-                                              _selectedNewPostCategory == 'Aviso' ? 'Escribe un aviso para todos...' :
-                                              _selectedNewPostCategory == 'Proyecto' ? 'Cuéntanos sobre tu nuevo proyecto...' :
-                                              'Aporta a la red universitaria...',
-                                    hintStyle: TextStyle(color: Colors.grey.shade400),
-                                    filled: true,
-                                    fillColor: const Color(0xFFF5F5F5),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
-                                    ),
-                                    counterStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11),
-                                  ),
-                                ),
-                                _buildMentionSuggestions(),
-                                _buildSelectedImagesPreview(),
-                              ],
+                          const SizedBox(width: 4),
+                          // Categoría Dropdown
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedNewPostCategory,
+                                isDense: true,
+                                style: TextStyle(color: _color, fontSize: 12, fontWeight: FontWeight.w600),
+                                items: _categoriasPost.map((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _selectedNewPostCategory = val);
+                                },
+                              ),
                             ),
                           ),
-                      const SizedBox(width: 8),
-                      Column(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.add_photo_alternate_outlined),
-                            color: Colors.grey.shade600,
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
-                            onPressed: _pickImages,
-                            tooltip: 'Añadir foto',
-                          ),
-                          const SizedBox(height: 8),
+                          const Spacer(),
                           _isPosting
-                              ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : IconButton(
-                                  icon: const Icon(Icons.send_rounded),
-                                  color: _color,
-                                  padding: const EdgeInsets.all(4),
-                                  constraints: const BoxConstraints(),
+                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                              : ElevatedButton(
                                   onPressed: _publicar,
-                                  tooltip: 'Publicar',
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _color,
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                  ),
+                                  child: const Text('Publicar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                 ),
                         ],
-                      )
-                        ],
-                      )
+                      ),
                     ],
                   )
-                : GestureDetector(
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    ).then((_) => setState(() {})),
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF5F5F5),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.lock_outline, color: Colors.grey),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Iniciá sesión para compartir tu experiencia',
-                              style: TextStyle(color: Colors.grey.shade500),
-                            ),
+                : Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _color.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.auto_awesome, color: Color(0xFFB8973A)),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Únete a la conversación universitaria.',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                           ),
-                          Text(
-                            'Entrar →',
-                            style: TextStyle(
-                              color: _color,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())).then((_) => setState(() {})),
+                          child: const Text('Iniciar Sesión', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
                     ),
                   ),
           ),
 
+          // ── Filtros ──
           Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (estaLogueado && _myProfile != null) ...[
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: ['Todos', 'Mi Carrera', 'Mi Generación'].map((f) {
-                        final isSelected = _currentFilter == f;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () => setState(() => _currentFilter = f),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFF1A2B4A) : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                f,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.grey.shade700,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _categorias.map((c) {
-                      final isSelected = _currentCategoryFilter == c;
-                      final catColor = c == 'Todas' ? Colors.grey.shade700 : _categoryColor(c);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: GestureDetector(
-                          onTap: () => setState(() => _currentCategoryFilter = c),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isSelected ? catColor.withValues(alpha: 0.12) : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isSelected ? catColor : Colors.transparent,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Text(
-                              c,
-                              style: TextStyle(
-                                color: isSelected ? catColor : Colors.grey.shade600,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  ...['Todos', 'Mi Carrera', 'Mi Generación'].map((f) {
+                    if (!estaLogueado && f != 'Todos') return const SizedBox.shrink();
+                    final isSelected = _currentFilter == f;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(f),
+                        selected: isSelected,
+                        onSelected: (val) => setState(() => _currentFilter = f),
+                        selectedColor: _color,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black87,
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                         ),
-                      );
-                    }).toList(),
+                        backgroundColor: Colors.white,
+                        elevation: 0,
+                        pressElevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSelected ? Colors.transparent : Colors.grey.shade300)),
+                      ),
+                    );
+                  }),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8.0),
+                    child: SizedBox(height: 20, child: VerticalDivider(width: 1, color: Colors.grey)),
                   ),
-                ),
-              ],
+                  ..._categorias.map((c) {
+                    final isSelected = _currentCategoryFilter == c;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(c),
+                        selected: isSelected,
+                        onSelected: (val) => setState(() => _currentCategoryFilter = c),
+                        selectedColor: _categoryColor(c).withOpacity(0.2),
+                        labelStyle: TextStyle(
+                          color: isSelected ? _categoryColor(c) : Colors.black87,
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        backgroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSelected ? _categoryColor(c) : Colors.grey.shade300)),
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
-          Divider(color: Colors.grey.shade200, height: 1),
 
           // ── Lista de posts ──
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredPosts.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.museum_outlined, size: 80, color: Colors.grey.shade300),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Aún no hay publicaciones aquí. ¡Anímate a iniciar la conversación!',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                : RefreshIndicator(
+                    onRefresh: _loadPosts,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      itemCount: _filteredPosts.length,
+                      itemBuilder: (context, index) {
+                        final post = _filteredPosts[index];
+                        final targetUserId = post['user_id'] as String;
+                        final perfil = post['profiles'] as Map<String, dynamic>?;
+                        final username = perfil?['nombre'] as String? ?? perfil?['username'] as String? ?? 'Anónimo';
+                        final carrera = perfil?['carrera'] as String? ?? '';
+                        final esMio = targetUserId == currentUserId;
+                        final categoria = post['categoria'] as String? ?? 'General';
+                        final esAdminPost = _isUserAdmin(perfil);
+                        final esSuperAdminPost = _isUserSuperAdmin(perfil);
+                        
+                        final reactions = List<Map<String, dynamic>>.from(post['post_reactions'] ?? []);
+                        final comentariosCount = (post['post_comments'] as List?)?.length ?? 0;
+                        
+                        Widget buildReactionButton(String icon, String type) {
+                          final count = reactions.where((r) => r['reaction_type'] == type).length;
+                          final iReacted = reactions.any((r) => r['reaction_type'] == type && r['user_id'] == currentUserId);
+
+                          return InkWell(
+                            onTap: estaLogueado ? () => _reaccionar(post['id'], type) : null,
+                            borderRadius: BorderRadius.circular(20),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: iReacted ? _color.withOpacity(0.1) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                              const SizedBox(height: 24),
-                              ElevatedButton(
-                                onPressed: () {
-                                  if (estaLogueado) {
-                                    FocusScope.of(context).requestFocus(_textFocusNode);
-                                  } else {
-                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginScreen())).then((_) => setState(() {}));
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1A2B4A),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
-                                ),
-                                child: const Text('Crear Primera Publicación', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              )
+                              child: Row(
+                                children: [
+                                  Text(icon, style: const TextStyle(fontSize: 16)),
+                                  if (count > 0) ...[
+                                    const SizedBox(width: 4),
+                                    Text('$count', style: TextStyle(color: iReacted ? _color : Colors.grey.shade600, fontSize: 12, fontWeight: iReacted ? FontWeight.bold : FontWeight.normal)),
+                                  ]
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: esAdminPost 
+                              ? Border.all(color: esSuperAdminPost ? const Color(0xFFB8973A).withOpacity(0.5) : _color.withOpacity(0.3), width: 1.5)
+                              : Border.all(color: Colors.grey.withOpacity(0.1)),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
                             ],
                           ),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadPosts,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
-                          itemCount: _filteredPosts.length,
-                          itemBuilder: (context, index) {
-                            final post = _filteredPosts[index];
-                            final targetUserId = post['user_id'] as String;
-                            final perfil = post['profiles'] as Map<String, dynamic>?;
-                            final username = perfil?['nombre'] as String? ?? perfil?['username'] as String? ?? 'Visitante';
-                            final carrera = perfil?['carrera'] as String? ?? '';
-                            final esMentor = perfil?['mentoria_abierta'] == true;
-                            final esMio = targetUserId == currentUserId;
-                            final categoria = post['categoria'] as String? ?? 'General';
-                            
-                            final reactions = List<Map<String, dynamic>>.from(post['post_reactions'] ?? []);
-                            final comentariosCount = (post['post_comments'] as List?)?.length ?? 0;
-                            
-                            Widget buildReactionButton(String icon, String type) {
-                              final count = reactions.where((r) => r['reaction_type'] == type).length;
-                              final iReacted = reactions.any((r) => r['reaction_type'] == type && r['user_id'] == currentUserId);
-
-                              return InkWell(
-                                onTap: estaLogueado ? () => _reaccionar(post['id'], type) : null,
-                                borderRadius: BorderRadius.circular(20),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Announcement Header if Admin + Aviso
+                              if (esAdminPost && categoria == 'Aviso')
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
                                   decoration: BoxDecoration(
-                                    color: iReacted ? _color.withValues(alpha: 0.1) : Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(20),
+                                    gradient: LinearGradient(
+                                      colors: esSuperAdminPost 
+                                        ? [const Color(0xFFB8973A), const Color(0xFFD4AF5A)]
+                                        : [_color, _color.withOpacity(0.8)],
+                                    ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  child: const Row(
                                     children: [
-                                      Text(icon, style: const TextStyle(fontSize: 18)),
-                                      if (count > 0) ...[
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          '$count',
-                                          style: TextStyle(
-                                            color: iReacted ? _color : Colors.grey.shade600,
-                                            fontWeight: iReacted ? FontWeight.bold : FontWeight.w500,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ]
+                                      Icon(Icons.campaign_rounded, color: Colors.white, size: 16),
+                                      SizedBox(width: 8),
+                                      Text('COMUNICADO OFICIAL', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
                                     ],
                                   ),
                                 ),
-                              );
-                            }
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              color: Colors.white,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    left: BorderSide(color: _categoryColor(categoria), width: 4),
-                                  ),
-                                ),
-                                padding: const EdgeInsets.fromLTRB(14, 14, 16, 10),
+                              
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
                                         GestureDetector(
-                                          onTap: () {
-                                            if (perfil != null) {
-                                              _mostrarPerfil(context, targetUserId, perfil, esMio, estaLogueado);
-                                            }
-                                          },
-                                          child: Stack(
-                                            clipBehavior: Clip.none,
-                                            children: [
-                                              CircleAvatar(
-                                                radius: 22,
-                                                backgroundColor: _avatarColor(username),
-                                                child: Text(
-                                                  username.isNotEmpty ? username[0].toUpperCase() : 'V',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 17,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (esMentor)
-                                                Positioned(
-                                                  bottom: -3,
-                                                  right: -3,
-                                                  child: Container(
-                                                    padding: const EdgeInsets.all(2),
-                                                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                                    child: const Icon(Icons.school, size: 13, color: Color(0xFF1B9E8A)),
-                                                  ),
-                                                )
-                                            ],
+                                          onTap: () => perfil != null ? _mostrarPerfil(context, targetUserId, perfil, esMio, estaLogueado) : null,
+                                          child: CircleAvatar(
+                                            radius: 20,
+                                            backgroundColor: esAdminPost ? (esSuperAdminPost ? const Color(0xFFB8973A) : _color) : _avatarColor(username),
+                                            child: Text(
+                                              username.isNotEmpty ? username[0].toUpperCase() : 'U',
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              if (perfil != null) {
-                                                _mostrarPerfil(context, targetUserId, perfil, esMio, estaLogueado);
-                                              }
-                                            },
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  username,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 15,
-                                                    color: Color(0xFF1A2B4A),
-                                                  ),
-                                                ),
-                                                Row(
-                                                  children: [
-                                                    if (carrera.isNotEmpty) ...[
-                                                      Flexible(
-                                                        child: Text(
-                                                          carrera,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: TextStyle(
-                                                            color: Colors.grey.shade500,
-                                                            fontSize: 12,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 6),
-                                                    ],
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: _categoryColor(categoria).withValues(alpha: 0.12),
-                                                        borderRadius: BorderRadius.circular(8),
-                                                      ),
-                                                      child: Text(
-                                                        categoria,
-                                                        style: TextStyle(
-                                                          color: _categoryColor(categoria),
-                                                          fontSize: 11,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text(username, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                                  if (esAdminPost) ...[
+                                                    const SizedBox(width: 4),
+                                                    Icon(Icons.verified_rounded, size: 16, color: esSuperAdminPost ? const Color(0xFFB8973A) : _color),
                                                   ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        Text(
-                                          _formatFecha(post['created_at']),
-                                          style: TextStyle(
-                                            color: Colors.grey.shade400,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        if (esMio) ...[
-                                          const SizedBox(width: 8),
-                                          GestureDetector(
-                                            onTap: () => showDialog(
-                                              context: context,
-                                              builder: (_) => AlertDialog(
-                                                title: const Text('Eliminar publicación'),
-                                                content: const Text('¿Seguro que querés eliminarla?'),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(context),
-                                                    child: const Text('Cancelar'),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      Navigator.pop(context);
-                                                      _eliminar(post['id']);
-                                                    },
-                                                    child: const Text(
-                                                      'Eliminar',
-                                                      style: TextStyle(color: Colors.red),
-                                                    ),
-                                                  ),
                                                 ],
                                               ),
-                                            ),
-                                            child: Icon(
-                                              Icons.delete_outline,
-                                              color: Colors.grey.shade400,
-                                              size: 20,
-                                            ),
+                                              Text(
+                                                '${carrera.isNotEmpty ? "$carrera • " : ""}${_formatFecha(post['created_at'])}',
+                                                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                              ),
+                                            ],
                                           ),
-                                        ] else if (estaLogueado) ...[
-                                            const SizedBox(width: 4),
-                                            PopupMenuButton<String>(
-                                              padding: EdgeInsets.zero,
-                                              icon: Icon(Icons.more_vert, color: Colors.grey.shade400, size: 20),
-                                              onSelected: (value) async {
-                                                if (value == 'report') {
-                                                  _reportar(post['id']);
-                                                } else if (value == 'block') {
-                                                  final conf = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (_) => AlertDialog(
-                                                      title: const Text('Bloquear usuario'),
-                                                      content: Text('Dejarás de ver publicaciones de $username en el muro.'),
-                                                      actions: [
-                                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                                                        TextButton(
-                                                          onPressed: () => Navigator.pop(context, true),
-                                                          child: const Text('Bloquear', style: TextStyle(color: Colors.red)),
-                                                        ),
-                                                      ]
-                                                    )
-                                                  );
-                                                  if (conf == true) {
-                                                    await SocialService().blockUser(targetUserId);
-                                                    _loadPosts();
-                                                  }
-                                                }
-                                              },
-                                              itemBuilder: (_) => [
-                                                const PopupMenuItem(value: 'report', child: Text('Reportar publicación')),
-                                                const PopupMenuItem(value: 'block', child: Text('Bloquear usuario', style: TextStyle(color: Colors.red))),
-                                              ],
-                                            ),
-                                        ],
+                                        ),
+                                        if (esMio || _myRole == 'superadmin')
+                                          IconButton(
+                                            icon: const Icon(Icons.more_horiz_rounded, size: 20),
+                                            onPressed: () {
+                                              showModalBottomSheet(
+                                                context: context,
+                                                builder: (_) => Container(
+                                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      ListTile(
+                                                        leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                                                        title: const Text('Eliminar publicación', style: TextStyle(color: Colors.red)),
+                                                        onTap: () {
+                                                          Navigator.pop(context);
+                                                          _eliminar(post['id']);
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          )
+                                        else if (estaLogueado)
+                                          IconButton(
+                                            icon: const Icon(Icons.flag_outlined, size: 20),
+                                            onPressed: () => _reportar(post['id']),
+                                          ),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
-                                    _buildPostContent(
-                                      post['contenido'] ?? '',
-                                      post['post_mentions'] ?? [],
-                                    ),
+                                    const SizedBox(height: 14),
+                                    _buildPostContent(post['contenido'] ?? '', post['post_mentions'] ?? []),
                                     _buildPostImages(post['image_urls']),
-                                    const SizedBox(height: 12),
-                                    Divider(color: Colors.grey.shade100, height: 1),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        buildReactionButton('👍', 'inspiracion'),
-                                        const SizedBox(width: 6),
-                                        buildReactionButton('❤️', 'recuerdo'),
-                                        const SizedBox(width: 6),
-                                        buildReactionButton('🎉', 'consejo'),
-                                        const Spacer(),
-                                        InkWell(
-                                          onTap: () {
-                                            showModalBottomSheet(
-                                              context: context,
-                                              isScrollControlled: true,
-                                              backgroundColor: Colors.transparent,
-                                              builder: (_) => CommentsBottomSheet(postId: post['id'], muroService: _muroService),
-                                            ).then((_) => _loadPosts());
-                                          },
-                                          borderRadius: BorderRadius.circular(20),
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey.shade100,
-                                              borderRadius: BorderRadius.circular(20),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.chat_bubble_outline, size: 17, color: Colors.grey.shade500),
-                                                if (comentariosCount > 0) ...[
-                                                  const SizedBox(width: 5),
-                                                  Text('$comentariosCount', style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w500, fontSize: 12)),
-                                                ]
-                                              ],
-                                            ),
-                                          ),
-                                        )
-                                      ],
-                                    )
                                   ],
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
+                              
+                              // Category and Footer
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                child: Row(
+                                  children: [
+                                    buildReactionButton('👍', 'inspiracion'),
+                                    const SizedBox(width: 8),
+                                    buildReactionButton('❤️', 'recuerdo'),
+                                    const SizedBox(width: 8),
+                                    buildReactionButton('🎉', 'consejo'),
+                                    const Spacer(),
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          builder: (_) => CommentsBottomSheet(postId: post['id'], muroService: _muroService),
+                                        ).then((_) => _loadPosts());
+                                      },
+                                      icon: Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.grey.shade600),
+                                      label: Text(
+                                        comentariosCount > 0 ? '$comentariosCount' : 'Comentar',
+                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        backgroundColor: Colors.grey.shade100,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
     );
   }
-
-
 }

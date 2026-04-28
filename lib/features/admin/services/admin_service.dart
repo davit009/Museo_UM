@@ -46,10 +46,10 @@ class AdminService {
     await _client.from('profiles').delete().eq('id', profileId);
   }
 
-  // 5. Revisar si el usuario actual es Admin
-  Future<bool> isCurrentUserAdmin() async {
+  // 5. Obtener el rol del usuario actual
+  Future<String> getCurrentUserRole() async {
     final uid = _client.auth.currentUser?.id;
-    if (uid == null) return false;
+    if (uid == null) return 'user';
 
     Map<String, dynamic>? response;
     try {
@@ -59,7 +59,6 @@ class AdminService {
           .eq('id', uid)
           .maybeSingle();
     } catch (_) {
-      // Compatibilidad con esquemas que solo tienen la columna role.
       response = await _client
           .from('profiles')
           .select('role')
@@ -67,11 +66,34 @@ class AdminService {
           .maybeSingle();
     }
 
-    if (response == null) return false;
+    if (response == null) return 'user';
 
     final roleValue = (response['role'] ?? '').toString().trim().toLowerCase();
     final isAdminFlag = response['is_admin'] == true;
 
-    return isAdminFlag || roleValue == 'admin' || roleValue == 'superadmin';
+    if (isAdminFlag || roleValue == 'superadmin' || roleValue == 'admin') {
+      return 'superadmin';
+    } else if (roleValue == 'editor' || roleValue == 'moderator') {
+      return 'editor';
+    }
+
+    return 'user';
+  }
+
+  // Helper para verificar si es cualquier tipo de admin
+  Future<bool> isCurrentUserAdmin() async {
+    final role = await getCurrentUserRole();
+    return role == 'superadmin' || role == 'editor';
+  }
+
+  // Helper para verificar si es Super Admin (puede borrar posts, banear, etc)
+  Future<bool> isCurrentUserSuperAdmin() async {
+    final role = await getCurrentUserRole();
+    return role == 'superadmin';
+  }
+
+  // 6. Actualizar rol de usuario
+  Future<void> updateUserRole(String userId, String newRole) async {
+    await _client.from('profiles').update({'role': newRole}).eq('id', userId);
   }
 }

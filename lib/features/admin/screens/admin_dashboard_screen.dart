@@ -12,6 +12,8 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   final AdminService _adminService = AdminService();
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -22,6 +24,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -80,7 +83,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
 
                     if (confirm == true) {
                       await _adminService.deletePost(post['id']);
-                      if (mounted) setState(() {}); // Refresh local UI
+                      if (mounted) setState(() {}); 
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Publicación eliminada por administrador.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
                       }
@@ -183,55 +186,110 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           return const Center(child: Text('No hay usuarios en la base de datos.'));
         }
 
-        final profiles = snapshot.data!;
-        return ListView.builder(
-          itemCount: profiles.length,
-          itemBuilder: (context, index) {
-            final p = profiles[index];
-            final nombre = p['nombre'] ?? p['username'] ?? 'Usuario';
-            final matricula = p['matricula'] ?? 'Sin matrícula';
-            final role = p['role'] ?? 'user';
+        final allProfiles = snapshot.data!;
+        final profiles = allProfiles.where((p) {
+          final name = (p['nombre'] ?? p['username'] ?? '').toString().toLowerCase();
+          final matricula = (p['matricula'] ?? '').toString().toLowerCase();
+          return name.contains(_searchQuery.toLowerCase()) || matricula.contains(_searchQuery.toLowerCase());
+        }).toList();
 
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: role == 'admin' ? Colors.amber.shade100 : Colors.blue.shade100,
-                  child: Icon(role == 'admin' ? Icons.admin_panel_settings : Icons.person, color: role == 'admin' ? Colors.orange : Colors.blue),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Buscar por nombre o matrícula...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.red),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
-                title: Text('$nombre ($role)'),
-                subtitle: Text('Matrícula: $matricula'),
-                trailing: role == 'admin' ? null : IconButton(
-                  icon: const Icon(Icons.block, color: Colors.red),
-                  onPressed: () async {
-                     final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text('¿Banear Perfil?'),
-                        content: const Text('Esto ELIMINARÁ el perfil de Supabase y en cascada todos sus posts y mensajes. ¿Continuar?'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true), 
-                            style: TextButton.styleFrom(foregroundColor: Colors.red),
-                            child: const Text('BANEAR')
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirm == true) {
-                      await _adminService.deleteProfile(p['id']);
-                      if (mounted) setState(() {});
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Usuario baneado exitosamente.', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
-                      }
-                    }
-                  },
-                ),
+                onChanged: (val) => setState(() => _searchQuery = val),
               ),
-            );
-          },
+            ),
+            Expanded(
+              child: profiles.isEmpty 
+                ? const Center(child: Text('No se encontraron usuarios.'))
+                : ListView.builder(
+                    itemCount: profiles.length,
+                    itemBuilder: (context, index) {
+                      final p = profiles[index];
+                      final nombre = p['nombre'] ?? p['username'] ?? 'Usuario';
+                      final matricula = p['matricula'] ?? 'Sin matrícula';
+                      final role = p['role'] ?? 'user';
+                      final isEditor = role == 'editor';
+                      final isSuperProtected = role == 'superadmin'; 
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: isSuperProtected ? Colors.amber.shade100 : (isEditor ? Colors.purple.shade100 : Colors.blue.shade100),
+                            child: Icon(
+                              isSuperProtected ? Icons.admin_panel_settings : (isEditor ? Icons.edit_note : Icons.person), 
+                              color: isSuperProtected ? Colors.orange : (isEditor ? Colors.purple : Colors.blue)
+                            ),
+                          ),
+                          title: Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('Rol: ${role.toUpperCase()} • $matricula', style: const TextStyle(fontSize: 12)),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isSuperProtected) ...[
+                                IconButton(
+                                  tooltip: isEditor ? 'Quitar Editor' : 'Hacer Editor',
+                                  icon: Icon(isEditor ? Icons.person_remove : Icons.person_add_alt_1, color: isEditor ? Colors.orange : Colors.green),
+                                  onPressed: () async {
+                                    final newRole = isEditor ? 'user' : 'editor';
+                                    await _adminService.updateUserRole(p['id'], newRole);
+                                    if (mounted) setState(() {});
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Usuario actualizado a $newRole')));
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  tooltip: 'Banear Usuario',
+                                  icon: const Icon(Icons.block, color: Colors.red),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: const Text('¿Banear Perfil?'),
+                                        content: const Text('Esto ELIMINARÁ el perfil y todos sus datos definitivamente.'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context, true), 
+                                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                            child: const Text('BANEAR')
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (confirm == true) {
+                                      await _adminService.deleteProfile(p['id']);
+                                      if (mounted) setState(() {});
+                                    }
+                                  },
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+            ),
+          ],
         );
       },
     );
@@ -251,7 +309,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.amber,
           tabs: const [
-            Tab(icon: Icon(Icons.comment), text: 'Muro Moderation'),
+            Tab(icon: Icon(Icons.comment), text: 'Muro Modera..'),
             Tab(icon: Icon(Icons.flag), text: 'Reportes'),
             Tab(icon: Icon(Icons.people), text: 'Auditoría Usuarios'),
           ],

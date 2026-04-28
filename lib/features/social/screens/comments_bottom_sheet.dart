@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:museo_app/features/social/services/muro_service.dart';
+import 'package:museo_app/features/admin/services/admin_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 class CommentsBottomSheet extends StatefulWidget {
   final int postId;
@@ -20,6 +23,9 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   List<Map<String, dynamic>> _comments = [];
   bool _isLoading = true;
   bool _isPosting = false;
+  String _myRole = 'user';
+  final _adminService = AdminService();
+
 
   @override
   void initState() {
@@ -36,9 +42,11 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
   Future<void> _loadComments() async {
     try {
       final comments = await widget.muroService.fetchComments(widget.postId);
+      final role = await _adminService.getCurrentUserRole();
       if (mounted) {
         setState(() {
           _comments = comments;
+          _myRole = role;
           _isLoading = false;
         });
       }
@@ -65,6 +73,31 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
     } finally {
       if (mounted) setState(() => _isPosting = false);
     }
+  }
+
+  Future<void> _deleteComment(int commentId) async {
+    try {
+      await Supabase.instance.client.from('post_comments').delete().eq('id', commentId);
+      _loadComments();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
+  }
+
+  bool _isUserAdmin(Map<String, dynamic>? perfil) {
+    if (perfil == null) return false;
+    final role = (perfil['role'] ?? '').toString().toLowerCase();
+    final isAdmin = perfil['is_admin'] == true;
+    return isAdmin || role == 'admin' || role == 'superadmin' || role == 'editor' || role == 'moderator';
+  }
+
+  bool _isUserSuperAdmin(Map<String, dynamic>? perfil) {
+    if (perfil == null) return false;
+    final role = (perfil['role'] ?? '').toString().toLowerCase();
+    final isAdmin = perfil['is_admin'] == true;
+    return isAdmin || role == 'admin' || role == 'superadmin';
   }
 
   String _formatFecha(String isoDate) {
@@ -124,9 +157,12 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                     itemCount: _comments.length,
                     itemBuilder: (context, index) {
                       final comment = _comments[index];
-                      final perfil = comment['profiles'];
+                      final perfil = comment['profiles'] as Map<String, dynamic>?;
                       final nombre = perfil?['nombre'] ?? perfil?['username'] ?? 'Usuario';
-                      final esEgresado = perfil?['es_egresado'] == true;
+                      final targetUserId = comment['user_id'] as String;
+                      final esMio = targetUserId == widget.muroService.currentUser?.id;
+                      final esAdmin = _isUserAdmin(perfil);
+                      final esSuperAdmin = _isUserSuperAdmin(perfil);
                       
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -134,36 +170,36 @@ class _CommentsBottomSheetState extends State<CommentsBottomSheet> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             CircleAvatar(
-                              radius: 16,
-                              backgroundColor: const Color(0xFFE04E4E).withOpacity(0.1),
-                              child: Text(nombre[0].toUpperCase(), style: const TextStyle(color: Color(0xFFE04E4E), fontSize: 12, fontWeight: FontWeight.bold)),
+                              radius: 14,
+                              backgroundColor: esAdmin ? (esSuperAdmin ? const Color(0xFFB8973A) : const Color(0xFF1A2B4A)) : Colors.grey.shade300,
+                              child: Text(nombre[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(16)
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1A2B4A))),
-                                        if (esEgresado) ...[
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.verified, size: 12, color: Color(0xFF1B9E8A)),
-                                        ],
-                                        const Spacer(),
-                                        Text(_formatFecha(comment['created_at']), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1A2B4A))),
+                                      if (esAdmin) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(Icons.verified_rounded, size: 12, color: esSuperAdmin ? const Color(0xFFB8973A) : const Color(0xFF1A2B4A)),
                                       ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(comment['contenido'], style: const TextStyle(fontSize: 14)),
-                                  ],
-                                ),
+                                      const Spacer(),
+                                      Text(_formatFecha(comment['created_at']), style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                                      if (esMio || _myRole == 'superadmin') ...[
+                                        const SizedBox(width: 8),
+                                        GestureDetector(
+                                          onTap: () => _deleteComment(comment['id']),
+                                          child: Icon(Icons.delete_outline_rounded, size: 14, color: Colors.grey.shade400),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(comment['contenido'], style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                                ],
                               ),
                             )
                           ],

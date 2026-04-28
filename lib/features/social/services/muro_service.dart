@@ -12,7 +12,7 @@ class MuroService {
   Future<List<Map<String, dynamic>>> fetchPosts() async {
     final response = await _client
         .from('posts')
-        .select('*, profiles(username, nombre, carrera, generacion, avatar_url, biografia, linkedin_url, email_publico, mentoria_abierta, es_egresado), post_reactions(user_id, reaction_type), post_comments(id), post_mentions(user_id, profiles(nombre, username))')
+        .select('*, profiles(username, nombre, carrera, generacion, avatar_url, biografia, linkedin_url, email_publico, mentoria_abierta, es_egresado, role, is_admin), post_reactions(user_id, reaction_type), post_comments(id), post_mentions(user_id, profiles(nombre, username))')
         .order('created_at', ascending: false);
     
     final posts = List<Map<String, dynamic>>.from(response);
