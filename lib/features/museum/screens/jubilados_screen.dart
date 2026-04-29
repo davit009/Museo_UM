@@ -1,10 +1,115 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:museo_app/features/admin/services/admin_service.dart';
 
-class JubiladosScreen extends StatelessWidget {
+class JubiladosScreen extends StatefulWidget {
   const JubiladosScreen({super.key});
+
+  @override
+  State<JubiladosScreen> createState() => _JubiladosScreenState();
+}
+
+class _JubiladosScreenState extends State<JubiladosScreen> {
+  final AdminService _adminService = AdminService();
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   static const Color _navy = Color(0xFF1A2545);
   static const Color _cream = Color(0xFFF5F0E8);
+  static const Color _gold = Color(0xFFB8973A);
+
+  bool _isAdmin = false;
+  bool _isEditing = false;
+  bool _isLoading = true;
+  List<String> _currentOrder = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminAndLoadOrder();
+  }
+
+  Future<void> _checkAdminAndLoadOrder() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    try {
+      // 1. Verificar si el usuario es administrador
+      _isAdmin = await _adminService.isCurrentUserAdmin();
+
+      // 2. Intentar cargar el orden guardado desde Supabase
+      final response = await _supabase
+          .from('museum_config')
+          .select('value')
+          .eq('key', 'jubilados_order')
+          .maybeSingle();
+
+      if (response != null && response['value'] != null) {
+        final List<dynamic> savedList = response['value'];
+        _currentOrder = savedList.map((e) => e.toString()).toList();
+        
+        // Sincronizar con archivos locales por si se añadieron nuevos
+        for (var file in _jubiladosImageFiles) {
+          if (!_currentOrder.contains(file)) {
+            _currentOrder.add(file);
+          }
+        }
+      } else {
+        _currentOrder = List.from(_jubiladosImageFiles);
+      }
+    } catch (e) {
+      debugPrint('Error al cargar orden: $e');
+      _currentOrder = List.from(_jubiladosImageFiles);
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveOrder() async {
+    setState(() => _isLoading = true);
+    try {
+      await _supabase.from('museum_config').upsert({
+        'key': 'jubilados_order',
+        'value': _currentOrder,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      
+      setState(() {
+        _isEditing = false;
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Orden guardado globalmente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Error al guardar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _moveImage(int index, int delta) {
+    final newIndex = index + delta;
+    if (newIndex >= 0 && newIndex < _currentOrder.length) {
+      setState(() {
+        final item = _currentOrder.removeAt(index);
+        _currentOrder.insert(newIndex, item);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +123,27 @@ class JubiladosScreen extends StatelessWidget {
         ),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (_isAdmin && !_isEditing)
+            IconButton(
+              icon: const Icon(Icons.edit_note),
+              tooltip: 'Reacomodar imágenes',
+              onPressed: () => setState(() => _isEditing = true),
+            ),
+          if (_isEditing) ...[
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.redAccent),
+              onPressed: () {
+                _checkAdminAndLoadOrder(); // Recargar para cancelar cambios
+                setState(() => _isEditing = false);
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.check, color: Colors.greenAccent),
+              onPressed: _saveOrder,
+            ),
+          ]
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
           child: Container(
@@ -30,32 +156,61 @@ class JubiladosScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _Header(total: _jubiladosCondecorados.length)),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-            sliver: SliverGrid(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final jubilado = _jubiladosCondecorados[index];
-                  return _JubiladoPhotoCard(
-                    bottomLabel: jubilado['bottomLabel']!,
-                    imageFile: jubilado['imageFile']!,
-                  );
-                },
-                childCount: _jubiladosCondecorados.length,
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator(color: _gold))
+        : CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _Header(total: _currentOrder.length)),
+              if (_isEditing)
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.shade700),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.amber),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Modo Administrador: Usa las flechas para mover las imágenes. No olvides guardar al finalizar.',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final imageFile = _currentOrder[index];
+                      return _JubiladoPhotoCard(
+                        bottomLabel: 'Memorias del museo',
+                        imageFile: imageFile,
+                        isEditing: _isEditing,
+                        onMoveLeft: index > 0 ? () => _moveImage(index, -1) : null,
+                        onMoveRight: index < _currentOrder.length - 1 ? () => _moveImage(index, 1) : null,
+                      );
+                    },
+                    childCount: _currentOrder.length,
+                  ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 20,
+                    childAspectRatio: 0.72,
+                  ),
+                ),
               ),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 20,
-                childAspectRatio: 0.72,
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }
@@ -113,18 +268,6 @@ const List<String> _jubiladosImageFiles = [
   'WhatsApp Image 2026-04-07 at 17.02.56 (2).jpeg',
   'WhatsApp Image 2026-04-07 at 17.05.38 (2).jpeg',
 ];
-
-final List<Map<String, String>> _jubiladosCondecorados = _jubiladosImageFiles
-    .asMap()
-    .entries
-    .map(
-      (entry) => {
-        'topLabel': 'Jubilados',
-        'bottomLabel': 'Memorias del museo',
-        'imageFile': entry.value,
-      },
-    )
-    .toList();
 
 // ── Header del museo ────────────────────────────────────────────────────────
 class _Header extends StatelessWidget {
@@ -275,10 +418,16 @@ class _Header extends StatelessWidget {
 class _JubiladoPhotoCard extends StatefulWidget {
   final String bottomLabel;
   final String imageFile;
+  final bool isEditing;
+  final VoidCallback? onMoveLeft;
+  final VoidCallback? onMoveRight;
 
   const _JubiladoPhotoCard({
     required this.bottomLabel,
     required this.imageFile,
+    this.isEditing = false,
+    this.onMoveLeft,
+    this.onMoveRight,
   });
 
   @override
@@ -308,7 +457,10 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _gold.withValues(alpha: 0.30), width: 1),
+        border: Border.all(
+          color: widget.isEditing ? Colors.amber : _gold.withValues(alpha: 0.30), 
+          width: widget.isEditing ? 2 : 1
+        ),
         boxShadow: [
           BoxShadow(
             color: _navy.withValues(alpha: 0.12),
@@ -382,6 +534,32 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
                       ),
                     ),
                   ),
+                  // Controles de edición
+                  if (widget.isEditing)
+                    Container(
+                      color: Colors.black26,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          if (widget.onMoveLeft != null)
+                            CircleAvatar(
+                              backgroundColor: Colors.white,
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_back, color: _navy),
+                                onPressed: widget.onMoveLeft,
+                              ),
+                            ),
+                          if (widget.onMoveRight != null)
+                            CircleAvatar(
+                              backgroundColor: Colors.white,
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_forward, color: _navy),
+                                onPressed: widget.onMoveRight,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -425,3 +603,4 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
     );
   }
 }
+
