@@ -455,7 +455,7 @@ final _sections = [
     color: const Color(0xFF1B9E8A),
     colorSecundario: const Color(0xFF0D6B5F),
     screen: const IntroHistoriaScreen(),
-    imagePath: 'assets/images/historia.jpeg',
+    imagePath: 'assets/images/historia.jpg',
   ),
   _Section(
     titulo: 'Las Etapas',
@@ -465,6 +465,7 @@ final _sections = [
     color: const Color(0xFF1A2B4A),
     colorSecundario: const Color(0xFF2E4A7A),
     screen: const EtapasScreen(),
+    imagePath: 'assets/images/etapas.jpg',
   ),
   _Section(
     titulo: 'Jubilados',
@@ -474,6 +475,7 @@ final _sections = [
     color: const Color(0xFF5B6FA0),
     colorSecundario: const Color(0xFF3A4D7A),
     screen: const JubiladosScreen(),
+    imagePath: 'assets/images/jubilados.jpg',
   ),
   _Section(
     titulo: 'Galerías',
@@ -501,7 +503,7 @@ final _sections = [
     color: const Color(0xFF2E9E5E),
     colorSecundario: const Color(0xFF1A6B3A),
     screen: const ComoLlegarScreen(),
-    imagePath: 'assets/images/mapaUM.png',
+    imagePath: 'assets/images/como llegar.jpg',
   ),
   _Section(
     titulo: 'Comunidad',
@@ -894,7 +896,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                   // Fondo: imagen real o gradiente + arte
                   if (s.imagePath != null)
-                    Image.asset(s.imagePath!, fit: BoxFit.cover)
+                    SizedBox.expand(
+                      child: Image.asset(
+                        s.imagePath!,
+                        fit: BoxFit.cover,
+                        alignment: Alignment.center,
+                      ),
+                    )
                   else
                     Container(
                       decoration: BoxDecoration(

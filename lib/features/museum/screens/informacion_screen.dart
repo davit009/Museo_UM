@@ -28,12 +28,6 @@ class _InformacionScreenState extends State<InformacionScreen> {
     'web': 'www.um.edu.mx',
     'instagram': '@um_mexico',
     'facebook': 'Universidad de Montemorelos',
-    'servicio_1': 'Visitas guiadas en español',
-    'servicio_2': 'Tienda de souvenirs y publicaciones',
-    'servicio_3': 'Sala de lectura y consulta',
-    'servicio_4': 'Wi-Fi gratuito',
-    'servicio_5': 'Acceso para personas con discapacidad',
-    'servicio_6': 'Estacionamiento en las inmediaciones',
   };
 
   String _v(String key) => ContentService.str(_data, key, _defaults[key] ?? '');
@@ -95,11 +89,6 @@ class _InformacionScreenState extends State<InformacionScreen> {
                   _SectionLabel(label: 'PRECIOS DE ENTRADA'),
                   const SizedBox(height: 14),
                   _PreciosCard(data: _data),
-                  const SizedBox(height: 28),
-
-                  _SectionLabel(label: 'SERVICIOS'),
-                  const SizedBox(height: 14),
-                  _ServiciosCard(data: _data),
                   const SizedBox(height: 28),
 
                   _SectionLabel(label: 'CONTACTO'),
@@ -477,81 +466,6 @@ class _PreciosCard extends StatelessWidget {
   }
 }
 
-// ── Servicios ─────────────────────────────────────────────────────────────────
-class _ServiciosCard extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _ServiciosCard({required this.data});
-
-  String _v(String key, String fb) => ContentService.str(data, key, fb);
-
-  List<String> get _servicios => [
-    _v('servicio_1', 'Visitas guiadas en español'),
-    _v('servicio_2', 'Tienda de souvenirs y publicaciones'),
-    _v('servicio_3', 'Sala de lectura y consulta'),
-    _v('servicio_4', 'Wi-Fi gratuito'),
-    _v('servicio_5', 'Acceso para personas con discapacidad'),
-    _v('servicio_6', 'Estacionamiento en las inmediaciones'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return _BaseCard(
-      child: Column(
-        children: [
-          Container(
-            height: 3,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF6B5000), Color(0xFFD4AF5A), Color(0xFF6B5000)],
-              ),
-            ),
-          ),
-          ...List.generate(_servicios.length, (i) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 26, height: 26,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFB8973A).withValues(alpha: 0.13),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFFB8973A).withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.check_rounded,
-                          size: 15,
-                          color: Color(0xFF8B6914),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          _servicios[i],
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF3A3A4A),
-                            fontWeight: FontWeight.w500,
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (i < _servicios.length - 1) _CardDivider(),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
 
 // ── Contacto ──────────────────────────────────────────────────────────────────
 class _ContactoCard extends StatelessWidget {

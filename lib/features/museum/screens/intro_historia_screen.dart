@@ -75,7 +75,7 @@ class _IntroHistoriaScreenState extends State<IntroHistoriaScreen> {
                   // ── Bienvenida ──────────────────────────────────────────
                   _SectionLabel(label: 'BIENVENIDA E HISTORIA'),
                   const SizedBox(height: 14),
-                  _WelcomeCard(text: _v('bienvenida', 'Bienvenidos al Museo Universitario. Aquí, cada objeto guarda el eco de un sacrificio por la educación adventista.')),
+                  _WelcomeCard(text: _v('bienvenida', 'Bienvenidos a este espacio virtual dedicado a nuestra historia. A través de esta aplicación, exploraremos el legado de fe y sacrificio por la educación adventista.')),
                   const SizedBox(height: 32),
 
                   // ── Línea del tiempo ────────────────────────────────────

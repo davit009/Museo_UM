@@ -229,12 +229,6 @@ class _InformacionEditorState extends State<_InformacionEditor> {
     'web': 'www.um.edu.mx',
     'instagram': '@um_mexico',
     'facebook': 'Universidad de Montemorelos',
-    'servicio_1': 'Visitas guiadas en español',
-    'servicio_2': 'Tienda de souvenirs y publicaciones',
-    'servicio_3': 'Sala de lectura y consulta',
-    'servicio_4': 'Wi-Fi gratuito',
-    'servicio_5': 'Acceso para personas con discapacidad',
-    'servicio_6': 'Estacionamiento en las inmediaciones',
   };
 
   @override
@@ -278,9 +272,7 @@ class _InformacionEditorState extends State<_InformacionEditor> {
         _EditableField(label: 'Instagram', currentValue: _val('instagram'), onSave: (v) => _save('instagram', v)),
         _EditableField(label: 'Facebook', currentValue: _val('facebook'), onSave: (v) => _save('facebook', v)),
 
-        _SectionHeader(title: 'SERVICIOS', icon: Icons.check_circle_outline),
-        for (int i = 1; i <= 6; i++)
-          _EditableField(label: 'Servicio $i', currentValue: _val('servicio_$i'), onSave: (v) => _save('servicio_$i', v)),
+
       ],
     );
   }
@@ -301,7 +293,7 @@ class _HistoriaEditorState extends State<_HistoriaEditor> {
   bool _loading = true;
 
   static const Map<String, String> _defaults = {
-    'bienvenida': 'Bienvenidos al Museo Universitario. Aquí, cada objeto guarda el eco de un sacrificio por la educación adventista. Nuestra universidad ha trazado un camino de fe que hoy nos toca continuar, recorriendo etapas que forjaron nuestra identidad actual.',
+    'bienvenida': 'Bienvenidos a este espacio virtual dedicado a nuestra historia. A través de esta aplicación, exploraremos el legado de fe y sacrificio por la educación adventista. Nuestra universidad ha trazado un camino que hoy nos toca continuar, recordando las etapas que forjaron nuestra identidad actual.',
     'cita_banner': 'Corazón de nuestra memoria universitaria. Una institución forjada en fe, naturaleza y compromiso.',
     'lema': '\"EDUCAR ES REDIMIR\"',
     'filosofia': 'La verdadera educación significa el desarrollo armonioso de las facultades físicas, mentales y espirituales.',
