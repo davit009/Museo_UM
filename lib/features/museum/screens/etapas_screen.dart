@@ -1,64 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:museo_app/features/admin/services/content_service.dart';
 
-class EtapasScreen extends StatelessWidget {
+class EtapasScreen extends StatefulWidget {
   const EtapasScreen({super.key});
+  @override
+  State<EtapasScreen> createState() => _EtapasScreenState();
+}
+
+class _EtapasScreenState extends State<EtapasScreen> {
+  final ContentService _svc = ContentService();
+  Map<String, dynamic> _data = {};
+  bool _loading = true;
 
   static const Color _navy    = Color(0xFF0F1C35);
   static const Color _cream   = Color(0xFFF5F0E8);
 
-  static const List<_EtapaData> _etapas = [
-    _EtapaData(
-      numero: '01',
-      years: '1935 – 1942',
-      titulo: 'Orígenes',
-      subtitulo: 'Instituto Comercial Prosperidad',
-      descripcion:
-          'Ubicado en la Calle Prosperidad en Tacubaya, CDMX, inició '
-          'como un pequeño internado para preparar misioneros bajo la '
-          'dirección del pastor Alfred G. Parfitt.',
-      color: Color(0xFF1B6B5A),
-      icon: Icons.park_rounded,
-    ),
-    _EtapaData(
-      numero: '02',
-      years: '1942 – 1951',
-      titulo: 'Primera Etapa',
-      subtitulo: 'Escuela Agrícola Industrial Mexicana',
-      descripcion:
-          'Traslado a la hacienda "La Carlota" en Montemorelos. '
-          'Inicio de la construcción de edificios emblemáticos y '
-          'el primer templo en 1945, forjados con el esfuerzo manual.',
-      color: Color(0xFF1A5272),
-      icon: Icons.foundation_rounded,
-    ),
-    _EtapaData(
-      numero: '03',
-      years: '1951 – 1973',
-      titulo: 'Segunda Etapa',
-      subtitulo: 'COVOPROM',
-      descripcion:
-          'Cambio a Colegio Vocacional y Profesional. Destacó el '
-          'desarrollo armónico de facultades, las industrias escolares '
-          'y misiones aéreas lideradas por el pastor Baxter.',
-      color: Color(0xFF3D3070),
-      icon: Icons.flight_rounded,
-    ),
-    _EtapaData(
-      numero: '04',
-      years: '1973 – Presente',
-      titulo: 'Tercera Etapa',
-      subtitulo: 'Universidad de Montemorelos',
-      descripcion:
-          'Decretada oficialmente el 5 de mayo de 1973. Etapa de '
-          'expansión académica global y excelencia profesional '
-          'bajo el lema perpetuo "Educar es Redimir".',
-      color: Color(0xFF6B2A00),
-      icon: Icons.school_rounded,
-    ),
+  String _v(String key, String fb) => ContentService.str(_data, key, fb);
+
+  @override
+  void initState() {
+    super.initState();
+    _svc.loadSection('etapas').then((d) {
+      if (mounted) setState(() { _data = d; _loading = false; });
+    }).catchError((_) {
+      if (mounted) setState(() => _loading = false);
+    });
+  }
+  List<_EtapaData> get _etapas => [
+    _EtapaData(numero: '01', years: _v('e1_years', '1935 – 1942'), titulo: _v('e1_titulo', 'Orígenes'), subtitulo: _v('e1_subtitulo', 'Instituto Comercial Prosperidad'), descripcion: _v('e1_desc', 'Ubicado en la Calle Prosperidad en Tacubaya, CDMX, inició como un pequeño internado para preparar misioneros bajo la dirección del pastor Alfred G. Parfitt.'), color: const Color(0xFF1B6B5A), icon: Icons.park_rounded),
+    _EtapaData(numero: '02', years: _v('e2_years', '1942 – 1951'), titulo: _v('e2_titulo', 'Primera Etapa'), subtitulo: _v('e2_subtitulo', 'Escuela Agrícola Industrial Mexicana'), descripcion: _v('e2_desc', 'Traslado a la hacienda "La Carlota" en Montemorelos. Inicio de la construcción de edificios emblemáticos y el primer templo en 1945, forjados con el esfuerzo manual.'), color: const Color(0xFF1A5272), icon: Icons.foundation_rounded),
+    _EtapaData(numero: '03', years: _v('e3_years', '1951 – 1973'), titulo: _v('e3_titulo', 'Segunda Etapa'), subtitulo: _v('e3_subtitulo', 'COVOPROM'), descripcion: _v('e3_desc', 'Cambio a Colegio Vocacional y Profesional. Destacó el desarrollo armónico de facultades, las industrias escolares y misiones aéreas lideradas por el pastor Baxter.'), color: const Color(0xFF3D3070), icon: Icons.flight_rounded),
+    _EtapaData(numero: '04', years: _v('e4_years', '1973 – Presente'), titulo: _v('e4_titulo', 'Tercera Etapa'), subtitulo: _v('e4_subtitulo', 'Universidad de Montemorelos'), descripcion: _v('e4_desc', 'Decretada oficialmente el 5 de mayo de 1973. Etapa de expansión académica global y excelencia profesional bajo el lema perpetuo "Educar es Redimir".'), color: const Color(0xFF6B2A00), icon: Icons.school_rounded),
   ];
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) return const Scaffold(backgroundColor: Color(0xFFF5F0E8), body: Center(child: CircularProgressIndicator(color: Color(0xFFB8973A))));
     return Scaffold(
       backgroundColor: _cream,
       appBar: AppBar(

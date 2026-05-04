@@ -1,65 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:museo_app/features/admin/services/content_service.dart';
 
-class IntroHistoriaScreen extends StatelessWidget {
+class IntroHistoriaScreen extends StatefulWidget {
   const IntroHistoriaScreen({super.key});
+  @override
+  State<IntroHistoriaScreen> createState() => _IntroHistoriaScreenState();
+}
+
+class _IntroHistoriaScreenState extends State<IntroHistoriaScreen> {
+  final ContentService _svc = ContentService();
+  Map<String, dynamic> _data = {};
+  bool _loading = true;
 
   static const Color _navy  = Color(0xFF0F1C35);
   static const Color _cream = Color(0xFFF5F0E8);
 
-  static const List<_TimelineData> _timeline = [
-    _TimelineData(
-      year: '1935',
-      label: 'Orígenes',
-      description:
-          'Fundación del Instituto Comercial Prosperidad en la CDMX. '
-          'Una pequeña semilla que contenía la grandeza de nuestra visión.',
-      color: Color(0xFF1B6B5A),
-    ),
-    _TimelineData(
-      year: '1942',
-      label: 'El Traslado',
-      description:
-          'Nacimiento de la Escuela Agrícola Industrial Mexicana en '
-          'la hacienda "La Carlota", Montemorelos.',
-      color: Color(0xFF1A5272),
-    ),
-    _TimelineData(
-      year: '1951',
-      label: 'Crecimiento',
-      description:
-          'Autorización del Colegio Vocacional y Profesional (COVOPROM) '
-          'y ampliación del nivel académico e industrial.',
-      color: Color(0xFF3D3070),
-    ),
-    _TimelineData(
-      year: '1973',
-      label: 'Universidad',
-      description:
-          'Decreto oficial de creación de la Universidad de Montemorelos. '
-          'Amanecer de una nueva era de excelencia profesional.',
-      color: Color(0xFF6B2A00),
-    ),
+  String _v(String key, String fb) => ContentService.str(_data, key, fb);
+
+  @override
+  void initState() {
+    super.initState();
+    _svc.loadSection('historia').then((d) {
+      if (mounted) setState(() { _data = d; _loading = false; });
+    }).catchError((_) {
+      if (mounted) setState(() => _loading = false);
+    });
+  }
+  List<_TimelineData> get _timeline => [
+    _TimelineData(year: '1935', label: _v('tl_1935_label', 'Orígenes'), description: _v('tl_1935_desc', 'Fundación del Instituto Comercial Prosperidad en la CDMX. Una pequeña semilla que contenía la grandeza de nuestra visión.'), color: const Color(0xFF1B6B5A)),
+    _TimelineData(year: '1942', label: _v('tl_1942_label', 'El Traslado'), description: _v('tl_1942_desc', 'Nacimiento de la Escuela Agrícola Industrial Mexicana en la hacienda "La Carlota", Montemorelos.'), color: const Color(0xFF1A5272)),
+    _TimelineData(year: '1951', label: _v('tl_1951_label', 'Crecimiento'), description: _v('tl_1951_desc', 'Autorización del Colegio Vocacional y Profesional (COVOPROM) y ampliación del nivel académico e industrial.'), color: const Color(0xFF3D3070)),
+    _TimelineData(year: '1973', label: _v('tl_1973_label', 'Universidad'), description: _v('tl_1973_desc', 'Decreto oficial de creación de la Universidad de Montemorelos. Amanecer de una nueva era de excelencia profesional.'), color: const Color(0xFF6B2A00)),
   ];
 
-  static const List<_EsenciaData> _esencia = [
-    _EsenciaData(
-      icon: Icons.auto_awesome_rounded,
-      title: 'Filosofía',
-      content:
-          'La verdadera educación significa el desarrollo armonioso '
-          'de las facultades físicas, mentales y espirituales.',
-    ),
-    _EsenciaData(
-      icon: Icons.format_quote_rounded,
-      title: 'Nuestro Lema',
-      content:
-          '"Educar es Redimir", nuestro sello inalterable y compromiso '
-          'eterno con Dios y la humanidad.',
-    ),
+  List<_EsenciaData> get _esencia => [
+    _EsenciaData(icon: Icons.auto_awesome_rounded, title: 'Filosofía', content: _v('filosofia', 'La verdadera educación significa el desarrollo armonioso de las facultades físicas, mentales y espirituales.')),
+    _EsenciaData(icon: Icons.format_quote_rounded, title: 'Nuestro Lema', content: _v('lema_esencia', '"Educar es Redimir", nuestro sello inalterable y compromiso eterno con Dios y la humanidad.')),
   ];
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) return const Scaffold(backgroundColor: Color(0xFFF5F0E8), body: Center(child: CircularProgressIndicator(color: Color(0xFFB8973A))));
     return Scaffold(
       backgroundColor: _cream,
       appBar: AppBar(
@@ -94,7 +75,7 @@ class IntroHistoriaScreen extends StatelessWidget {
                   // ── Bienvenida ──────────────────────────────────────────
                   _SectionLabel(label: 'BIENVENIDA E HISTORIA'),
                   const SizedBox(height: 14),
-                  _WelcomeCard(),
+                  _WelcomeCard(text: _v('bienvenida', 'Bienvenidos al Museo Universitario. Aquí, cada objeto guarda el eco de un sacrificio por la educación adventista.')),
                   const SizedBox(height: 32),
 
                   // ── Línea del tiempo ────────────────────────────────────
@@ -116,28 +97,7 @@ class IntroHistoriaScreen extends StatelessWidget {
                   ],
                   const SizedBox(height: 32),
 
-                  // ── Personajes clave ────────────────────────────────────
-                  _SectionLabel(label: 'PERSONAJES CLAVE'),
-                  const SizedBox(height: 14),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                      childAspectRatio: 0.82,
-                    ),
-                    itemCount: _importantPeople.length,
-                    itemBuilder: (context, index) {
-                      final person = _importantPeople[index];
-                      return _PersonCard(
-                        name: person['name']!,
-                        role: person['role']!,
-                        imageUrl: person['imageUrl']!,
-                      );
-                    },
-                  ),
+
                 ],
               ),
             ),
@@ -169,14 +129,7 @@ class _EsenciaData {
   const _EsenciaData({required this.icon, required this.title, required this.content});
 }
 
-final List<Map<String, String>> _importantPeople = List.generate(
-  20,
-  (i) => {
-    'name': 'Nombre ${i + 1}',
-    'role': 'Pionero / Colaborador',
-    'imageUrl': 'https://picsum.photos/200/200?random=$i',
-  },
-);
+
 
 // ── Hero banner ──────────────────────────────────────────────────────────────
 class _HeroBanner extends StatelessWidget {
@@ -240,7 +193,7 @@ class _HeroBanner extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'MUSEO UNIVERSITARIO',
+                            'UNIVERSIDAD DE MONTEMORELOS',
                             style: TextStyle(
                               color: _goldLight,
                               fontSize: 9,
@@ -250,7 +203,7 @@ class _HeroBanner extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           const Text(
-                            'George W. Caviness',
+                            'Museo Universitario',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -364,6 +317,8 @@ class _SectionLabel extends StatelessWidget {
 
 // ── Card de bienvenida ───────────────────────────────────────────────────────
 class _WelcomeCard extends StatelessWidget {
+  final String text;
+  const _WelcomeCard({required this.text});
   static const Color _navy = Color(0xFF0F1C35);
   static const Color _gold = Color(0xFFB8973A);
 
@@ -376,25 +331,9 @@ class _WelcomeCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _gold.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: _navy.withValues(alpha: 0.07),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: _navy.withValues(alpha: 0.07), blurRadius: 18, offset: const Offset(0, 6))],
       ),
-      child: const Text(
-        'Bienvenidos al Museo Universitario. Aquí, cada objeto guarda el eco '
-        'de un sacrificio por la educación adventista. Nuestra universidad ha '
-        'trazado un camino de fe que hoy nos toca continuar, recorriendo etapas '
-        'que forjaron nuestra identidad actual.',
-        style: TextStyle(
-          fontSize: 14,
-          height: 1.75,
-          color: Color(0xFF3A3A4A),
-        ),
-      ),
+      child: Text(text, style: const TextStyle(fontSize: 14, height: 1.75, color: Color(0xFF3A3A4A))),
     );
   }
 }
@@ -635,113 +574,3 @@ class _EsenciaCard extends StatelessWidget {
   }
 }
 
-// ── Card de personaje ────────────────────────────────────────────────────────
-class _PersonCard extends StatelessWidget {
-  final String name;
-  final String role;
-  final String imageUrl;
-
-  const _PersonCard({required this.name, required this.role, required this.imageUrl});
-
-  static const Color _navy = Color(0xFF0F1C35);
-  static const Color _gold = Color(0xFFB8973A);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _gold.withValues(alpha: 0.22)),
-        boxShadow: [
-          BoxShadow(
-            color: _navy.withValues(alpha: 0.09),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          children: [
-            // Franja dorada superior
-            Container(
-              height: 3,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF6B5000), Color(0xFFD4AF5A), Color(0xFF6B5000)],
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Avatar
-                    Container(
-                      width: 72, height: 72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: _gold, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _navy.withValues(alpha: 0.15),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                        image: DecorationImage(
-                          image: NetworkImage(imageUrl),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Línea dorada
-                    Container(
-                      height: 1.5, width: 24,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFB8973A), Color(0xFFD4AF5A)],
-                        ),
-                        borderRadius: BorderRadius.circular(1),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      name,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: _navy,
-                        height: 1.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      role,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[500],
-                        letterSpacing: 0.2,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

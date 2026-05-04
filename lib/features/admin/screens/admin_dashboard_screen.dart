@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:museo_app/features/admin/services/admin_service.dart';
+import 'package:museo_app/features/admin/screens/content_editor_screen.dart';
 import 'package:intl/intl.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -311,7 +312,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           tabs: const [
             Tab(icon: Icon(Icons.comment), text: 'Muro Modera..'),
             Tab(icon: Icon(Icons.flag), text: 'Reportes'),
-            Tab(icon: Icon(Icons.people), text: 'Auditoría Usuarios'),
+            Tab(icon: Icon(Icons.people), text: 'Usuarios'),
+            Tab(icon: Icon(Icons.edit_note), text: 'Contenido'),
           ],
         ),
       ),
@@ -321,6 +323,54 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> with Single
           _buildPostsTab(),
           _buildReportsTab(),
           _buildProfilesTab(),
+          const _ContentTab(),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget embebido en el TabBarView del admin para editor de contenido
+class _ContentTab extends StatelessWidget {
+  const _ContentTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFB8973A).withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFB8973A).withValues(alpha: 0.4)),
+            ),
+            child: const Icon(Icons.edit_document, size: 40, color: Color(0xFFB8973A)),
+          ),
+          const SizedBox(height: 20),
+          const Text('Editor de Contenido del Museo',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF0F1C35))),
+          const SizedBox(height: 8),
+          const Text('Edita textos, horarios, precios y más\nsin necesidad de un desarrollador.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey, height: 1.5)),
+          const SizedBox(height: 28),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F1C35),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            ),
+            icon: const Icon(Icons.edit_note),
+            label: const Text('Abrir Editor', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ContentEditorScreen()),
+            ),
+          ),
         ],
       ),
     );

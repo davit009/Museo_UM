@@ -20,7 +20,9 @@ class _JubiladosScreenState extends State<JubiladosScreen> {
   bool _isAdmin = false;
   bool _isEditing = false;
   bool _isLoading = true;
+  bool _isSaving = false;
   List<String> _currentOrder = [];
+  List<String> _originalOrder = []; // Para cancelar cambios
 
   @override
   void initState() {
@@ -33,10 +35,8 @@ class _JubiladosScreenState extends State<JubiladosScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Verificar si el usuario es administrador
       _isAdmin = await _adminService.isCurrentUserAdmin();
 
-      // 2. Intentar cargar el orden guardado desde Supabase
       final response = await _supabase
           .from('museum_config')
           .select('value')
@@ -45,42 +45,45 @@ class _JubiladosScreenState extends State<JubiladosScreen> {
 
       if (response != null && response['value'] != null) {
         final List<dynamic> savedList = response['value'];
-        _currentOrder = savedList.map((e) => e.toString()).toList();
-        
-        // Sincronizar con archivos locales por si se añadieron nuevos
+        final saved = savedList.map((e) => e.toString()).toList();
+        // Agregar archivos nuevos que no estén en el orden guardado
         for (var file in _jubiladosImageFiles) {
-          if (!_currentOrder.contains(file)) {
-            _currentOrder.add(file);
-          }
+          if (!saved.contains(file)) saved.add(file);
         }
+        _currentOrder = saved;
       } else {
         _currentOrder = List.from(_jubiladosImageFiles);
       }
+      _originalOrder = List.from(_currentOrder);
     } catch (e) {
       debugPrint('Error al cargar orden: $e');
       _currentOrder = List.from(_jubiladosImageFiles);
+      _originalOrder = List.from(_currentOrder);
     }
 
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _saveOrder() async {
-    setState(() => _isLoading = true);
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
     try {
-      await _supabase.from('museum_config').upsert({
-        'key': 'jubilados_order',
-        'value': _currentOrder,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-      
-      setState(() {
-        _isEditing = false;
-        _isLoading = false;
-      });
+      await _supabase.from('museum_config').upsert(
+        {
+          'key': 'jubilados_order',
+          'value': _currentOrder,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        onConflict: 'key',
+      );
+
+      _originalOrder = List.from(_currentOrder);
 
       if (mounted) {
+        setState(() {
+          _isEditing = false;
+          _isSaving = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Orden guardado globalmente'),
@@ -89,8 +92,8 @@ class _JubiladosScreenState extends State<JubiladosScreen> {
         );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('❌ Error al guardar: $e'),
@@ -101,14 +104,11 @@ class _JubiladosScreenState extends State<JubiladosScreen> {
     }
   }
 
-  void _moveImage(int index, int delta) {
-    final newIndex = index + delta;
-    if (newIndex >= 0 && newIndex < _currentOrder.length) {
-      setState(() {
-        final item = _currentOrder.removeAt(index);
-        _currentOrder.insert(newIndex, item);
-      });
-    }
+  void _cancelEditing() {
+    setState(() {
+      _currentOrder = List.from(_originalOrder);
+      _isEditing = false;
+    });
   }
 
   @override
@@ -126,23 +126,32 @@ class _JubiladosScreenState extends State<JubiladosScreen> {
         actions: [
           if (_isAdmin && !_isEditing)
             IconButton(
-              icon: const Icon(Icons.edit_note),
-              tooltip: 'Reacomodar imágenes',
+              icon: const Icon(Icons.swap_vert_rounded),
+              tooltip: 'Reordenar imágenes',
               onPressed: () => setState(() => _isEditing = true),
             ),
           if (_isEditing) ...[
-            IconButton(
-              icon: const Icon(Icons.close, color: Colors.redAccent),
-              onPressed: () {
-                _checkAdminAndLoadOrder(); // Recargar para cancelar cambios
-                setState(() => _isEditing = false);
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.check, color: Colors.greenAccent),
-              onPressed: _saveOrder,
-            ),
-          ]
+            if (_isSaving)
+              const Padding(
+                padding: EdgeInsets.all(14),
+                child: SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                ),
+              )
+            else ...[
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.redAccent),
+                tooltip: 'Cancelar',
+                onPressed: _cancelEditing,
+              ),
+              IconButton(
+                icon: const Icon(Icons.check, color: Colors.greenAccent),
+                tooltip: 'Guardar orden',
+                onPressed: _saveOrder,
+              ),
+            ],
+          ],
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(2),
@@ -156,64 +165,203 @@ class _JubiladosScreenState extends State<JubiladosScreen> {
           ),
         ),
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: _gold))
-        : CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(child: _Header(total: _currentOrder.length)),
-              if (_isEditing)
-                SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade100,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.amber.shade700),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.amber),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Modo Administrador: Usa las flechas para mover las imágenes. No olvides guardar al finalizar.',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-                sliver: SliverGrid(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final imageFile = _currentOrder[index];
-                      return _JubiladoPhotoCard(
-                        bottomLabel: 'Memorias del museo',
-                        imageFile: imageFile,
-                        isEditing: _isEditing,
-                        onMoveLeft: index > 0 ? () => _moveImage(index, -1) : null,
-                        onMoveRight: index < _currentOrder.length - 1 ? () => _moveImage(index, 1) : null,
-                      );
-                    },
-                    childCount: _currentOrder.length,
-                  ),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 20,
-                    childAspectRatio: 0.72,
-                  ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: _gold))
+          : _isEditing
+              ? _buildReorderableList()
+              : _buildPhotoGrid(),
+    );
+  }
+
+  // ── Vista normal: grid de fotos ─────────────────────────────────────────────
+  Widget _buildPhotoGrid() {
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _Header(total: _currentOrder.length)),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => _JubiladoPhotoCard(
+                imageFile: _currentOrder[index],
+              ),
+              childCount: _currentOrder.length,
+            ),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 20,
+              childAspectRatio: 0.72,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Vista edición: lista drag & drop ───────────────────────────────────────
+  Widget _buildReorderableList() {
+    return Column(
+      children: [
+        // Banner informativo
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.amber.shade400),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.drag_indicator, color: Colors.amber.shade700),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Arrastra las filas para reordenar. Toca ✓ para guardar.',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ReorderableListView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 32),
+            itemCount: _currentOrder.length,
+            onReorder: (oldIndex, newIndex) {
+              setState(() {
+                if (newIndex > oldIndex) newIndex--;
+                final item = _currentOrder.removeAt(oldIndex);
+                _currentOrder.insert(newIndex, item);
+              });
+            },
+            proxyDecorator: (child, index, animation) {
+              return Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(14),
+                shadowColor: _navy.withValues(alpha: 0.4),
+                child: child,
+              );
+            },
+            itemBuilder: (context, index) {
+              final imageFile = _currentOrder[index];
+              return _ReorderableImageTile(
+                key: ValueKey(imageFile),
+                imageFile: imageFile,
+                index: index,
+                total: _currentOrder.length,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
+
+// ── Tile para la lista reordenable ──────────────────────────────────────────
+class _ReorderableImageTile extends StatelessWidget {
+  final String imageFile;
+  final int index;
+  final int total;
+
+  const _ReorderableImageTile({
+    super.key,
+    required this.imageFile,
+    required this.index,
+    required this.total,
+  });
+
+  static const Color _navy = Color(0xFF1A2545);
+  static const Color _gold = Color(0xFFB8973A);
+
+  String get _imageUrl {
+    final encoded = Uri.encodeComponent(imageFile);
+    return 'http://64.23.168.72/media/Jubilados/$encoded';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _gold.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: _navy.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Número de posición
+          Container(
+            width: 40,
+            alignment: Alignment.center,
+            child: Text(
+              '${index + 1}',
+              style: TextStyle(
+                color: _gold,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          // Miniatura
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              _imageUrl,
+              width: 64,
+              height: 64,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 64, height: 64,
+                color: const Color(0xFFEDE8DF),
+                child: Icon(Icons.person, color: _gold.withValues(alpha: 0.5), size: 30),
+              ),
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  width: 64, height: 64,
+                  color: const Color(0xFFF0EBE0),
+                  child: Center(child: CircularProgressIndicator(color: _gold, strokeWidth: 2)),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Nombre del archivo (simplificado)
+          Expanded(
+            child: Text(
+              'Foto ${index + 1} de $total',
+              style: const TextStyle(
+                color: _navy,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          // Handle de arrastre (decorativo, el ReorderableListView lo maneja)
+          const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: Icon(Icons.drag_handle, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Datos de imágenes
+// ══════════════════════════════════════════════════════════════════════════════
 
 const List<String> _jubiladosBaseUrls = [
   'http://64.23.168.72/media/Jubilados',
@@ -331,33 +479,26 @@ class _Header extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: _gold.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: _gold.withValues(alpha: 0.5),
-                          width: 1.5,
-                        ),
+                        border: Border.all(color: _gold.withValues(alpha: 0.5), width: 1.5),
                       ),
                       child: const Icon(Icons.groups_rounded, color: _goldLight, size: 28),
                     ),
                     const SizedBox(width: 14),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
+                      children: const [
+                        Text(
                           'GALERÍA DE HONOR',
                           style: TextStyle(
-                            color: _goldLight,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2.5,
+                            color: _goldLight, fontSize: 10,
+                            fontWeight: FontWeight.w700, letterSpacing: 2.5,
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        const Text(
+                        SizedBox(height: 3),
+                        Text(
                           'Jubilados UM',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                            color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
@@ -397,9 +538,7 @@ class _Header extends StatelessWidget {
                       Text(
                         '$total retratos',
                         style: const TextStyle(
-                          color: _goldLight,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          color: _goldLight, fontSize: 12, fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -414,21 +553,11 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ── Tarjeta de retrato ───────────────────────────────────────────────────────
+// ── Tarjeta de retrato (vista grid normal) ──────────────────────────────────
 class _JubiladoPhotoCard extends StatefulWidget {
-  final String bottomLabel;
   final String imageFile;
-  final bool isEditing;
-  final VoidCallback? onMoveLeft;
-  final VoidCallback? onMoveRight;
 
-  const _JubiladoPhotoCard({
-    required this.bottomLabel,
-    required this.imageFile,
-    this.isEditing = false,
-    this.onMoveLeft,
-    this.onMoveRight,
-  });
+  const _JubiladoPhotoCard({required this.imageFile});
 
   @override
   State<_JubiladoPhotoCard> createState() => _JubiladoPhotoCardState();
@@ -457,10 +586,7 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: widget.isEditing ? Colors.amber : _gold.withValues(alpha: 0.30), 
-          width: widget.isEditing ? 2 : 1
-        ),
+        border: Border.all(color: _gold.withValues(alpha: 0.30)),
         boxShadow: [
           BoxShadow(
             color: _navy.withValues(alpha: 0.12),
@@ -473,7 +599,6 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
         borderRadius: BorderRadius.circular(15),
         child: Column(
           children: [
-            // Franja dorada superior
             Container(
               height: 4,
               decoration: const BoxDecoration(
@@ -482,7 +607,6 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
                 ),
               ),
             ),
-            // Imagen
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
@@ -496,10 +620,7 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
                       return Container(
                         color: const Color(0xFFF0EBE0),
                         child: Center(
-                          child: CircularProgressIndicator(
-                            color: _gold,
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(color: _gold, strokeWidth: 2),
                         ),
                       );
                     },
@@ -521,7 +642,6 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
                       );
                     },
                   ),
-                  // Viñeta sutil en bordes
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: RadialGradient(
@@ -534,36 +654,9 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
                       ),
                     ),
                   ),
-                  // Controles de edición
-                  if (widget.isEditing)
-                    Container(
-                      color: Colors.black26,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          if (widget.onMoveLeft != null)
-                            CircleAvatar(
-                              backgroundColor: Colors.white,
-                              child: IconButton(
-                                icon: const Icon(Icons.arrow_back, color: _navy),
-                                onPressed: widget.onMoveLeft,
-                              ),
-                            ),
-                          if (widget.onMoveRight != null)
-                            CircleAvatar(
-                              backgroundColor: Colors.white,
-                              child: IconButton(
-                                icon: const Icon(Icons.arrow_forward, color: _navy),
-                                onPressed: widget.onMoveRight,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),
-            // Sección del nombre
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
@@ -571,8 +664,7 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
               child: Column(
                 children: [
                   Container(
-                    height: 2,
-                    width: 28,
+                    height: 2, width: 28,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xFFB8973A), Color(0xFFD4AF5A)],
@@ -581,14 +673,11 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    widget.bottomLabel,
-                    style: const TextStyle(
-                      color: _navy,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.3,
-                      height: 1.3,
+                  const Text(
+                    'Memorias del museo',
+                    style: TextStyle(
+                      color: _navy, fontSize: 11,
+                      fontWeight: FontWeight.w600, letterSpacing: 0.3, height: 1.3,
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 2,
@@ -603,4 +692,3 @@ class _JubiladoPhotoCardState extends State<_JubiladoPhotoCard> {
     );
   }
 }
-

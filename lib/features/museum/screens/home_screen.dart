@@ -4,8 +4,7 @@ import 'package:museo_app/features/museum/screens/intro_historia_screen.dart';
 import 'package:museo_app/features/museum/screens/etapas_screen.dart';
 import 'package:museo_app/features/museum/screens/jubilados_screen.dart';
 import 'package:museo_app/features/museum/screens/images_screen.dart';
-import 'package:museo_app/features/museum/screens/musica_screen.dart';
-import 'package:museo_app/features/museum/screens/datos_curiosos_screen.dart';
+// musica_screen y datos_curiosos_screen eliminados por decisión del encargado
 import 'package:museo_app/features/museum/screens/informacion_screen.dart';
 import 'package:museo_app/features/museum/screens/como_llegar_screen.dart';
 import 'package:museo_app/features/social/screens/muro_screen.dart';
@@ -31,11 +30,9 @@ class _SectionArtPainter extends CustomPainter {
       case 1: { _etapas(canvas, size);      break; } // Las Etapas
       case 2: { _jubilados(canvas, size);   break; } // Jubilados
       case 3: { _galeria(canvas, size);     break; } // Galerías
-      case 4: { _musica(canvas, size);      break; } // Música
-      case 5: { _curiosos(canvas, size);    break; } // Datos Curiosos
-      case 6: { _informacion(canvas, size); break; } // Información
-      case 7: { _comoLlegar(canvas, size);  break; } // Cómo Llegar (tiene imagen)
-      case 8: { _socialRed(canvas, size);   break; } // Comunidad
+      case 4: { _informacion(canvas, size); break; } // Información
+      case 5: { _comoLlegar(canvas, size);  break; } // Cómo Llegar (tiene imagen)
+      case 6: { _socialRed(canvas, size);   break; } // Comunidad
     }
   }
 
@@ -156,58 +153,6 @@ class _SectionArtPainter extends CustomPainter {
     canvas.drawPath(path, _p(0.40, fill: true));
   }
 
-  // Música — pentagrama prominente + notas grandes
-  void _musica(Canvas canvas, Size s) {
-    final staffTop = s.height * 0.18;
-    final staffSpacing = s.height * 0.10;
-    for (int i = 0; i < 5; i++) {
-      canvas.drawLine(Offset(0, staffTop + i * staffSpacing), Offset(s.width, staffTop + i * staffSpacing), _p(0.38, width: 1.8));
-    }
-    // Onda de audio en la parte inferior
-    final wavePath = Path();
-    wavePath.moveTo(0, s.height * 0.82);
-    for (double x = 0; x <= s.width; x += 2) {
-      wavePath.lineTo(x, s.height * 0.82 + math.sin(x / s.width * 5 * math.pi) * 14);
-    }
-    canvas.drawPath(wavePath, _p(0.28, width: 2.0));
-    // Notas musicales grandes
-    _bigNote(canvas, Offset(s.width * 0.18, staffTop + staffSpacing * 1.5), 20);
-    _bigNote(canvas, Offset(s.width * 0.55, staffTop + staffSpacing * 0.5), 17);
-    _bigNote(canvas, Offset(s.width * 0.82, staffTop + staffSpacing * 2.0), 15);
-  }
-
-  void _bigNote(Canvas canvas, Offset pos, double sz) {
-    canvas.drawOval(Rect.fromCenter(center: pos, width: sz * 1.4, height: sz), _p(0.45, fill: true));
-    canvas.drawLine(Offset(pos.dx + sz * 0.68, pos.dy), Offset(pos.dx + sz * 0.68, pos.dy - sz * 3.0), _p(0.42, width: 2.0));
-    // Corchea
-    final flagPath = Path()
-      ..moveTo(pos.dx + sz * 0.68, pos.dy - sz * 3.0)
-      ..quadraticBezierTo(pos.dx + sz * 1.5, pos.dy - sz * 2.4, pos.dx + sz * 0.9, pos.dy - sz * 1.8);
-    canvas.drawPath(flagPath, _p(0.42, width: 2.0));
-  }
-
-  // Datos Curiosos — bombilla grande con rayos
-  void _curiosos(Canvas canvas, Size s) {
-    final c = Offset(s.width / 2, s.height * 0.42);
-    final r = s.width * 0.22;
-    // Cuerpo de la bombilla
-    canvas.drawCircle(c, r, _p(0.30, fill: true));
-    canvas.drawCircle(c, r, _p(0.50, width: 2.0));
-    // Base de la bombilla
-    final baseW = r * 0.8;
-    canvas.drawLine(Offset(c.dx - baseW, c.dy + r + 8), Offset(c.dx + baseW, c.dy + r + 8), _p(0.45, width: 2.5));
-    canvas.drawLine(Offset(c.dx - baseW * 0.8, c.dy + r + 18), Offset(c.dx + baseW * 0.8, c.dy + r + 18), _p(0.45, width: 2.5));
-    // Rayos de luz
-    for (int i = 0; i < 12; i++) {
-      final angle = i * math.pi / 6;
-      final inner = c + Offset(math.cos(angle) * (r + 10), math.sin(angle) * (r + 10));
-      final outer = c + Offset(math.cos(angle) * (r + 30), math.sin(angle) * (r + 30));
-      canvas.drawLine(inner, outer, _p(0.32, width: 2.0));
-    }
-    // Signo de exclamación dentro
-    canvas.drawLine(Offset(c.dx, c.dy - r * 0.4), Offset(c.dx, c.dy + r * 0.15), _p(0.55, width: 3.5));
-    canvas.drawCircle(Offset(c.dx, c.dy + r * 0.38), 3, _p(0.55, fill: true));
-  }
 
   // Información — reloj (horarios) + ticket (precios) + sobre (contacto)
   void _informacion(Canvas canvas, Size s) {
@@ -538,24 +483,6 @@ final _sections = [
     color: const Color(0xFF2E7D9A),
     colorSecundario: const Color(0xFF1A5E75),
     screen: const ImagesScreen(),
-  ),
-  _Section(
-    titulo: 'Música',
-    subtitulo: 'Conciertos, eventos y patrimonio musical de Mendoza',
-    categoria: 'ARTE & CULTURA',
-    icon: Icons.music_note,
-    color: const Color(0xFF7B5EA7),
-    colorSecundario: const Color(0xFF4A3570),
-    screen: const MusicaScreen(),
-  ),
-  _Section(
-    titulo: 'Datos Curiosos',
-    subtitulo: 'Lo que no sabías sobre nuestro museo',
-    categoria: 'DESCUBRIMIENTO',
-    icon: Icons.lightbulb,
-    color: const Color(0xFFC9961A),
-    colorSecundario: const Color(0xFF8A6410),
-    screen: const DatosCuriososScreen(),
   ),
   _Section(
     titulo: 'Información',

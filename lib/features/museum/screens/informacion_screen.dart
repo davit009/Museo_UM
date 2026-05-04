@@ -1,13 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:museo_app/features/admin/services/content_service.dart';
 
-class InformacionScreen extends StatelessWidget {
+class InformacionScreen extends StatefulWidget {
   const InformacionScreen({super.key});
+  @override
+  State<InformacionScreen> createState() => _InformacionScreenState();
+}
+
+class _InformacionScreenState extends State<InformacionScreen> {
+  final ContentService _svc = ContentService();
+  Map<String, dynamic> _data = {};
+  bool _loading = true;
 
   static const Color _navy  = Color(0xFF0F1C35);
   static const Color _cream = Color(0xFFF5F0E8);
 
+  static const Map<String, String> _defaults = {
+    'horario_lv': '9:00 – 18:00 hs',
+    'horario_sabado': '10:00 – 16:00 hs',
+    'horario_domingo': 'Cerrado',
+    'precio_general': 'Gratuita',
+    'precio_jubilados': 'Gratuita',
+    'precio_estudiantes': 'Gratuita',
+    'precio_grupos': 'Consultar',
+    'telefono': '(826) 263-0900',
+    'email': 'museo@um.edu.mx',
+    'web': 'www.um.edu.mx',
+    'instagram': '@um_mexico',
+    'facebook': 'Universidad de Montemorelos',
+    'servicio_1': 'Visitas guiadas en español',
+    'servicio_2': 'Tienda de souvenirs y publicaciones',
+    'servicio_3': 'Sala de lectura y consulta',
+    'servicio_4': 'Wi-Fi gratuito',
+    'servicio_5': 'Acceso para personas con discapacidad',
+    'servicio_6': 'Estacionamiento en las inmediaciones',
+  };
+
+  String _v(String key) => ContentService.str(_data, key, _defaults[key] ?? '');
+
+  @override
+  void initState() {
+    super.initState();
+    _svc.loadSection('informacion').then((data) {
+      if (mounted) setState(() { _data = data; _loading = false; });
+    }).catchError((_) {
+      if (mounted) setState(() => _loading = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF5F0E8),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFFB8973A))),
+      );
+    }
     return Scaffold(
       backgroundColor: _cream,
       appBar: AppBar(
@@ -41,27 +89,27 @@ class InformacionScreen extends StatelessWidget {
                 children: [
                   _SectionLabel(label: 'HORARIOS DE ATENCIÓN'),
                   const SizedBox(height: 14),
-                  _HorariosCard(),
+                  _HorariosCard(data: _data),
                   const SizedBox(height: 28),
 
                   _SectionLabel(label: 'PRECIOS DE ENTRADA'),
                   const SizedBox(height: 14),
-                  _PreciosCard(),
+                  _PreciosCard(data: _data),
                   const SizedBox(height: 28),
 
                   _SectionLabel(label: 'SERVICIOS'),
                   const SizedBox(height: 14),
-                  _ServiciosCard(),
+                  _ServiciosCard(data: _data),
                   const SizedBox(height: 28),
 
                   _SectionLabel(label: 'CONTACTO'),
                   const SizedBox(height: 14),
-                  _ContactoCard(),
+                  _ContactoCard(data: _data),
                   const SizedBox(height: 28),
 
                   _SectionLabel(label: 'REDES SOCIALES'),
                   const SizedBox(height: 14),
-                  _RedesCard(),
+                  _RedesCard(data: _data),
                 ],
               ),
             ),
@@ -251,10 +299,15 @@ class _CardDivider extends StatelessWidget {
 
 // ── Horarios ─────────────────────────────────────────────────────────────────
 class _HorariosCard extends StatelessWidget {
-  static const _horarios = [
-    ('Lunes a Viernes', '9:00 – 18:00 hs', false),
-    ('Sábados',         '10:00 – 16:00 hs', false),
-    ('Domingos y feriados', 'Cerrado', true),
+  final Map<String, dynamic> data;
+  const _HorariosCard({required this.data});
+
+  String _v(String key, String fb) => ContentService.str(data, key, fb);
+
+  List<(String, String, bool)> get _horarios => [
+    ('Lunes a Viernes', _v('horario_lv', '9:00 – 18:00 hs'), false),
+    ('Sábados', _v('horario_sabado', '10:00 – 16:00 hs'), false),
+    ('Domingos y feriados', _v('horario_domingo', 'Cerrado'), _v('horario_domingo', 'Cerrado').toLowerCase().contains('cerr')),
   ];
 
   @override
@@ -337,12 +390,20 @@ class _HorariosCard extends StatelessWidget {
 
 // ── Precios ───────────────────────────────────────────────────────────────────
 class _PreciosCard extends StatelessWidget {
-  static const _precios = [
-    ('Entrada general',      'Gratuita',  true),
-    ('Jubilados',            'Gratuita',  true),
-    ('Estudiantes',          'Gratuita',  true),
-    ('Visitas guiadas grupales', 'Consultar', false),
-  ];
+  final Map<String, dynamic> data;
+  const _PreciosCard({required this.data});
+
+  String _v(String key, String fb) => ContentService.str(data, key, fb);
+
+  List<(String, String, bool)> get _precios {
+    bool isGratis(String v) => v.toLowerCase().contains('gratu');
+    return [
+      ('Entrada general', _v('precio_general', 'Gratuita'), isGratis(_v('precio_general', 'Gratuita'))),
+      ('Jubilados', _v('precio_jubilados', 'Gratuita'), isGratis(_v('precio_jubilados', 'Gratuita'))),
+      ('Estudiantes', _v('precio_estudiantes', 'Gratuita'), isGratis(_v('precio_estudiantes', 'Gratuita'))),
+      ('Visitas guiadas grupales', _v('precio_grupos', 'Consultar'), false),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -418,13 +479,18 @@ class _PreciosCard extends StatelessWidget {
 
 // ── Servicios ─────────────────────────────────────────────────────────────────
 class _ServiciosCard extends StatelessWidget {
-  static const _servicios = [
-    'Visitas guiadas en español',
-    'Tienda de souvenirs y publicaciones',
-    'Sala de lectura y consulta',
-    'Wi-Fi gratuito',
-    'Acceso para personas con discapacidad',
-    'Estacionamiento en las inmediaciones',
+  final Map<String, dynamic> data;
+  const _ServiciosCard({required this.data});
+
+  String _v(String key, String fb) => ContentService.str(data, key, fb);
+
+  List<String> get _servicios => [
+    _v('servicio_1', 'Visitas guiadas en español'),
+    _v('servicio_2', 'Tienda de souvenirs y publicaciones'),
+    _v('servicio_3', 'Sala de lectura y consulta'),
+    _v('servicio_4', 'Wi-Fi gratuito'),
+    _v('servicio_5', 'Acceso para personas con discapacidad'),
+    _v('servicio_6', 'Estacionamiento en las inmediaciones'),
   ];
 
   @override
@@ -489,10 +555,15 @@ class _ServiciosCard extends StatelessWidget {
 
 // ── Contacto ──────────────────────────────────────────────────────────────────
 class _ContactoCard extends StatelessWidget {
-  static const _contactos = [
-    (Icons.phone_rounded,  'Teléfono',  '(826) 263-0900', Color(0xFF1B6B5A)),
-    (Icons.email_rounded,  'Email',     'museo@um.edu.mx', Color(0xFF1A5272)),
-    (Icons.language_rounded, 'Web',     'www.um.edu.mx', Color(0xFF3D3070)),
+  final Map<String, dynamic> data;
+  const _ContactoCard({required this.data});
+
+  String _v(String key, String fb) => ContentService.str(data, key, fb);
+
+  List<(IconData, String, String, Color)> get _contactos => [
+    (Icons.phone_rounded, 'Teléfono', _v('telefono', '(826) 263-0900'), const Color(0xFF1B6B5A)),
+    (Icons.email_rounded, 'Email', _v('email', 'museo@um.edu.mx'), const Color(0xFF1A5272)),
+    (Icons.language_rounded, 'Web', _v('web', 'www.um.edu.mx'), const Color(0xFF3D3070)),
   ];
 
   @override
@@ -564,9 +635,14 @@ class _ContactoCard extends StatelessWidget {
 
 // ── Redes sociales ────────────────────────────────────────────────────────────
 class _RedesCard extends StatelessWidget {
-  static const _redes = [
-    (Icons.camera_alt_rounded, 'Instagram',  '@um_mexico',                   Color(0xFFE1306C)),
-    (Icons.facebook_rounded,   'Facebook',   'Universidad de Montemorelos',  Color(0xFF1877F2)),
+  final Map<String, dynamic> data;
+  const _RedesCard({required this.data});
+
+  String _v(String key, String fb) => ContentService.str(data, key, fb);
+
+  List<(IconData, String, String, Color)> get _redes => [
+    (Icons.camera_alt_rounded, 'Instagram', _v('instagram', '@um_mexico'), const Color(0xFFE1306C)),
+    (Icons.facebook_rounded, 'Facebook', _v('facebook', 'Universidad de Montemorelos'), const Color(0xFF1877F2)),
   ];
 
   @override
