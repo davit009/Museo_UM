@@ -86,11 +86,6 @@ class _InformacionScreenState extends State<InformacionScreen> {
                   _HorariosCard(data: _data),
                   const SizedBox(height: 28),
 
-                  _SectionLabel(label: 'PRECIOS DE ENTRADA'),
-                  const SizedBox(height: 14),
-                  _PreciosCard(data: _data),
-                  const SizedBox(height: 28),
-
                   _SectionLabel(label: 'CONTACTO'),
                   const SizedBox(height: 14),
                   _ContactoCard(data: _data),
@@ -368,95 +363,6 @@ class _HorariosCard extends StatelessWidget {
                   ),
                 ),
                 if (i < _horarios.length - 1) _CardDivider(),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Precios ───────────────────────────────────────────────────────────────────
-class _PreciosCard extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _PreciosCard({required this.data});
-
-  String _v(String key, String fb) => ContentService.str(data, key, fb);
-
-  List<(String, String, bool)> get _precios {
-    bool isGratis(String v) => v.toLowerCase().contains('gratu');
-    return [
-      ('Entrada general', _v('precio_general', 'Gratuita'), isGratis(_v('precio_general', 'Gratuita'))),
-      ('Jubilados', _v('precio_jubilados', 'Gratuita'), isGratis(_v('precio_jubilados', 'Gratuita'))),
-      ('Estudiantes', _v('precio_estudiantes', 'Gratuita'), isGratis(_v('precio_estudiantes', 'Gratuita'))),
-      ('Visitas guiadas grupales', _v('precio_grupos', 'Consultar'), false),
-    ];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _BaseCard(
-      child: Column(
-        children: [
-          Container(
-            height: 3,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF6B5000), Color(0xFFD4AF5A), Color(0xFF6B5000)],
-              ),
-            ),
-          ),
-          ...List.generate(_precios.length, (i) {
-            final (cat, precio, gratuita) = _precios[i];
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                  child: Row(
-                    children: [
-                      Icon(
-                        gratuita ? Icons.confirmation_num_rounded : Icons.info_outline_rounded,
-                        size: 16,
-                        color: gratuita ? const Color(0xFF1B6B5A) : const Color(0xFF0F1C35),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          cat,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF3A3A4A),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                        decoration: BoxDecoration(
-                          gradient: gratuita
-                              ? const LinearGradient(
-                                  colors: [Color(0xFF1B6B5A), Color(0xFF2A9E82)],
-                                )
-                              : const LinearGradient(
-                                  colors: [Color(0xFF0F1C35), Color(0xFF1A2B4A)],
-                                ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          precio,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (i < _precios.length - 1) _CardDivider(),
               ],
             );
           }),
