@@ -485,6 +485,7 @@ final _sections = [
     color: const Color(0xFF2E7D9A),
     colorSecundario: const Color(0xFF1A5E75),
     screen: const ImagesScreen(),
+    imagePath: 'assets/images/Galeria.jpg',
   ),
   _Section(
     titulo: 'Información',
@@ -494,6 +495,7 @@ final _sections = [
     color: const Color(0xFF1B6EA8),
     colorSecundario: const Color(0xFF0D4A7A),
     screen: const InformacionScreen(),
+    imagePath: 'assets/images/Información.jpg',
   ),
   _Section(
     titulo: 'Cómo Llegar',
